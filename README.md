@@ -117,3 +117,31 @@ API 호출 없이 추출·파싱·스키마·렌더링·요청 구성을 검증�
 
 스킬 패키지에는 패키지 소스, 작성 규칙, 익명화된 예시 6건, 정합성 점검기, JSON 템플릿이 모두 들어 있습니다.
 예시에 새 검토의견서를 추가하려면 `review-draft exemplar 파일.hwp -o review_draft/prompts/exemplars/` 로 변환한 뒤 다시 빌드합니다.
+## 유사·중복 후보 임베딩 분석 (`similarity/`)
+
+협의사업의 사업목적·지원대상·지원내용·전달체계를 「중앙부처 지원사업 공고정보」 xlsx 의 기존사업과
+BAAI/bge-m3 임베딩으로 비교해 유사·중복 검토 후보를 뽑습니다. 가중치는 「유사·중복사업 대상 선정 분석 지표(안)」
+(20·30·30·15) 를 합 100 으로 정규화해 적용합니다.
+
+```bash
+pip install torch sentence-transformers openpyxl pandas
+export HF_HUB_DISABLE_XET=1   # Hugging Face Xet 다운로드가 막힌 환경일 때
+python similarity/similarity_check.py --xlsx "2026년 중앙부처 지원사업 공고정보.xlsx" \
+    --profile similarity/new_project_profile.json --out output/similarity --top 10
+# kosievalteam.github.io/biz_info 의 2025·2026년 내역사업(Supabase public.biz) 을 합치려면
+# similarity/biz_export.sql 로 내보낸 JSON 을 --biz 로 지정합니다 (자료는 로그인 전용이므로 저장소에 올리지 않음)
+python similarity/similarity_check.py --xlsx 공고정보.xlsx --biz biz_2025_2026.json --out output/similarity
+# 그 밖의 추가 표(공고이름·목적·내용·대상 열 필수)는 --extra 파일.csv 로 합칩니다
+
+# 기존사업을 내역·내내역사업 단위로 비교하고 공고정보는 보강 자료로만 쓰려면 (biz_struct·gonggo 추출 JSON 필요)
+python similarity/similarity_check.py --level naeyeok --xlsx 공고정보.xlsx --biz biz_2025_2026.json \
+    --struct struct2025/ --struct struct2026/ --parents-full parents_full/ --gonggo gonggo2025/ --gonggo gonggo2026/ \
+    --out output/similarity
+```
+
+`--level naeyeok` 에서는 예산 구조표(biz_struct) 레벨3·4 항목을 내내역 단위로 만들고(부모 내역사업의 목적·대상·전달체계 상속),
+공고정보는 공고명↔내역사업 매핑표(gonggo)·세부사업명·사업명 대조로 해당 단위에 ①목적·②내용·③대상·④규모를 덧붙입니다.
+매핑 결과는 결과 xlsx 의 「공고매핑」 시트에서 확인할 수 있습니다.
+
+- `similarity/new_project_profile.json` : 협의사업 4개 축 서술(전체·내역사업 단위). 새 협의사업은 이 파일을 바꿔 재사용
+- `similarity/results/` : 「청년 금융혁신 창업·일자리 확대 지원」 분석 결과(개조식 보고서 .md, 전체 순위 .xlsx)
