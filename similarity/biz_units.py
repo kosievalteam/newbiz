@@ -75,14 +75,64 @@ def load_struct(path: Path | list[Path]) -> dict[tuple, list[dict]]:
     return by
 
 
-def load_gonggo_map(dirs: list[Path]) -> dict[tuple[int, str], tuple[str, str, str]]:
-    """(연도, 정규화 공고명) → (소관, 세부사업명, 내역사업명)"""
-    m: dict[tuple[int, str], tuple[str, str, str]] = {}
+_NOISE = re.compile(r"(공고|공모|모집|안내|신청|접수|추가|재공고|참여\s*기업|참여\s*기관|교육생|운영사|수혜\s*기업|수행\s*기관|대상\s*기업|지원\s*기업|"
+                    r"\d+차|상반기|하반기|제\d+회|사업$|지원사업$|지원$)")
+
+
+def clean_title(name: str) -> str:
+    """공고명을 비교용으로 정리: [지역] 접두어·연도·'모집 공고' 류 꼬리말 제거 후 정규화."""
+    t = re.sub(r"^\s*\[[^\]]*\]\s*", "", str(name or ""))
+    t = re.sub(r"(19|20)\d{2}\s*년(도)?", " ", t)
+    t = re.sub(r"\(\s*(공고|모집)[^)]*\)", " ", t)
+    prev = None
+    while prev != t:
+        prev, t = t, _NOISE.sub(" ", t).strip()
+    return norm(t)
+
+
+def _bigrams(s: str) -> set[str]:
+    return {s[i:i + 2] for i in range(len(s) - 1)} if len(s) > 1 else {s}
+
+
+def dice(a: str, b: str) -> float:
+    x, y = _bigrams(a), _bigrams(b)
+    return 2 * len(x & y) / (len(x) + len(y)) if x and y else 0.0
+
+
+def ministry_match(abbr: str, full: str) -> bool:
+    """'중기부' ↔ '중소벤처기업부' 처럼 약칭이 정식 명칭의 부분수열이면 참."""
+    a, f = norm(abbr), norm(full)
+    if not a or not f:
+        return True
+    if a in f or f in a:
+        return True
+    it = iter(f)
+    return all(ch in it for ch in a)
+
+
+def load_gonggo_rows(dirs: list[Path]) -> list[dict]:
+    """공고 매핑표 행 목록(연도·소관·세부·내역·정리된 공고명)."""
+    out = []
     for d in dirs:
         for r in _load_rows(d):
             if r.get("nae") and r.get("name"):
-                m.setdefault((int(r["yr"]), norm(r["name"])), (r["gwan"], r["sebu"], r["nae"]))
-    return m
+                out.append({"yr": int(r["yr"]), "gwan": r["gwan"], "sebu": r["sebu"], "nae": r["nae"],
+                            "name": r["name"], "title": clean_title(r["name"])})
+    return out
+
+
+def match_announcement(ann_name: str, ann_gwan: str, rows: list[dict], threshold: float = 0.5) -> tuple[dict | None, float]:
+    """xlsx 공고명을 gonggo 공고명과 글자 2-gram Dice 계수로 대조해 가장 비슷한 행을 돌려준다(연도·부처 일치 우선)."""
+    yr = 2026 if str(ann_name).startswith("2026") else 2025 if str(ann_name).startswith("2025") else 2026
+    t = clean_title(ann_name)
+    best, best_s = None, 0.0
+    for r in rows:
+        if not ministry_match(ann_gwan, r["gwan"]):
+            continue
+        sc = dice(t, r["title"]) + (0.05 if r["yr"] == yr else 0.0)
+        if sc > best_s:
+            best, best_s = r, sc
+    return (best, best_s) if best_s >= threshold else (None, best_s)
 
 
 def _calc_lines_for(calc: str, item: str) -> str:
@@ -115,8 +165,53 @@ def _tokens_overlap(ann_name: str, child: str, parent_names: str) -> bool:
     return any(x in y or y in x for x in a for y in c)
 
 
+def match_by_sebu(ann_name: str, ann_gwan: str, df: pd.DataFrame, sebu_groups: dict, head_threshold: float = 0.8) -> tuple[list[int], float]:
+    """공고명 머리(괄호 앞)가 세부사업명과 거의 같으면, 괄호 안 어절이 내역·내내역 서술에 나타나는 단위를 고른다."""
+    raw = re.sub(r"^\s*(19|20)\d{2}\s*년(도)?\s*", "", str(ann_name or ""))
+    head = clean_title(re.split(r"[(\[]", raw, 1)[0])
+    paren = " ".join(re.findall(r"[(\[]([^)\]]*)[)\]]", raw))
+    if len(head) < 3:
+        return [], 0.0
+    best_key, best_s = None, 0.0
+    for (gwan, sebu_t), idxs in sebu_groups.items():
+        if not ministry_match(ann_gwan, gwan):
+            continue
+        sc = dice(head, sebu_t)
+        if sc > best_s:
+            best_key, best_s = (gwan, sebu_t), sc
+    if best_s < head_threshold:
+        return [], best_s
+    idxs = sebu_groups[best_key]
+    if len(idxs) == 1 or not paren:
+        return idxs, best_s
+    toks = _tokens(paren, _tokens(best_key[1]))
+    if not toks:
+        return idxs, best_s
+    scored = []
+    for i in idxs:  # 사업명 > 목적 > 내용 순으로 가중
+        nm = norm(f"{df.at[i, '내역사업명']} {df.at[i, '내내역명']}")
+        pur = norm(str(df.at[i, "목적"]))
+        body = norm(str(df.at[i, "내용"])[:500])
+        scored.append((sum(3 * (t in nm) + 2 * (t in pur) + (t in body) for t in toks), i))
+    top = max(sc for sc, _ in scored)
+    return ([i for sc, i in scored if sc == top] if top > 0 else idxs), best_s
+
+
+def match_unit_name(ann_name: str, ann_gwan: str, unit_names: list[tuple], threshold: float = 0.5) -> tuple[int | None, float]:
+    """공고명을 기존사업 단위명(세부+내역+내내역 / 내역+내내역)과 직접 대조한다."""
+    t = clean_title(ann_name)
+    best, best_s = None, 0.0
+    for i, gwan, full_name, short_name in unit_names:
+        if not ministry_match(ann_gwan, gwan):
+            continue
+        sc = max(dice(t, full_name), dice(t, short_name))
+        if sc > best_s:
+            best, best_s = i, sc
+    return (best, best_s) if best_s >= threshold else (None, best_s)
+
+
 def build_units(biz: pd.DataFrame, struct_dir: Path | list[Path] | None, parents_dir: Path | None,
-                gonggo_dirs: list[Path], ann_df: pd.DataFrame | None) -> pd.DataFrame:
+                gonggo_dirs: list[Path], ann_df: pd.DataFrame | None, threshold: float = 0.55) -> pd.DataFrame:
     """similarity_check.load_biz 결과(내역사업 단위)를 내역·내내역 단위로 확장하고 공고정보로 보강한다."""
     df = biz.copy()
     df["단위"] = "내역사업"
@@ -168,24 +263,40 @@ def build_units(biz: pd.DataFrame, struct_dir: Path | list[Path] | None, parents
 
     # --- 공고정보 보강 ---
     if ann_df is not None and gonggo_dirs:
-        gmap = load_gonggo_map(gonggo_dirs)
+        grows = load_gonggo_rows(gonggo_dirs)
+        sebu_groups: dict[tuple[str, str], list[int]] = {}
+        for i in df.index:
+            sebu_groups.setdefault((df.at[i, "부처"], clean_title(df.at[i, "세부사업명"])), []).append(i)
+        unit_names = [(i, df.at[i, "부처"], clean_title(f"{df.at[i, '세부사업명']} {df.at[i, '내역사업명']} {df.at[i, '내내역명']}"),
+                       clean_title(f"{df.at[i, '내역사업명']} {df.at[i, '내내역명']}")) for i in df.index]
         key_of = {}
         for i, r in df.iterrows():
             key_of.setdefault((r["연도"], norm(r["부처"]), norm(r["세부사업명"]), norm(r["내역사업명"])), []).append(i)
         add: dict[int, list[dict]] = {}
         unmapped = 0
+        mapping_log = []
         for _, a in ann_df.iterrows():
             name = a["공고이름"]
             yr = 2026 if name.startswith("2026") else 2025 if name.startswith("2025") else 2026
-            hit = gmap.get((yr, norm(name))) or gmap.get((2025 if yr == 2026 else 2026, norm(name)))
-            if not hit:
-                unmapped += 1
-                continue
-            gwan, sebu, nae = hit
-            cands = key_of.get((yr, norm(gwan), norm(sebu), norm(nae))) or key_of.get((2025 if yr == 2026 else 2026, norm(gwan), norm(sebu), norm(nae)))
+            hit, score = match_announcement(name, a.get("부처", ""), grows, threshold)
+            cands = None
+            if hit:
+                gwan, sebu, nae = hit["gwan"], hit["sebu"], hit["nae"]
+                cands = key_of.get((yr, norm(gwan), norm(sebu), norm(nae))) or key_of.get((2025 if yr == 2026 else 2026, norm(gwan), norm(sebu), norm(nae)))
+                how = hit["name"]
+            if not cands:  # 2단계: 공고명 머리(괄호 앞)가 세부사업명과 같으면 괄호 안 어절로 내역·내내역을 고른다
+                cands2, score2 = match_by_sebu(name, a.get("부처", ""), df, sebu_groups)
+                if cands2:
+                    cands, how, score = cands2, "(세부사업명+괄호 어절 매칭)", score2
+            if not cands:  # 3단계: 세부·내역·내내역 사업명과 직접 대조
+                hit2, score2 = match_unit_name(name, a.get("부처", ""), unit_names, threshold)
+                if hit2 is not None:
+                    cands, how, score = [hit2], "(사업명 직접 매칭)", score2
             if not cands:
                 unmapped += 1
+                mapping_log.append((name, "", "", round(max(score, 0), 2)))
                 continue
+            mapping_log.append((name, how, df.at[cands[0], "공고이름"], round(score, 2)))
             # 내내역이 여러 개면 공고명과 항목명의 어절이 겹치는 것에 우선 배정, 없으면 모두에 배정
             tgt = [i for i in cands if df.at[i, "내내역명"] and _tokens_overlap(name, df.at[i, "내내역명"], sebu + " " + nae)]
             for i in (tgt or cands):
@@ -199,4 +310,5 @@ def build_units(biz: pd.DataFrame, struct_dir: Path | list[Path] | None, parents
             df.at[i, "대상"] = df.at[i, "대상"] + " " + " ".join(f"[공고 대상] {a['대상']}" for a in anns if a["대상"])
         df.attrs["ann_mapped"] = len(ann_df) - unmapped
         df.attrs["ann_unmapped"] = unmapped
+        df.attrs["mapping_log"] = pd.DataFrame(mapping_log, columns=["공고이름", "매칭 공고명", "내역사업", "유사도"])
     return df.reset_index(drop=True)

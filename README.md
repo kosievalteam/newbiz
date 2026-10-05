@@ -120,7 +120,16 @@ python similarity/similarity_check.py --xlsx "2026년 중앙부처 지원사업 
 # similarity/biz_export.sql 로 내보낸 JSON 을 --biz 로 지정합니다 (자료는 로그인 전용이므로 저장소에 올리지 않음)
 python similarity/similarity_check.py --xlsx 공고정보.xlsx --biz biz_2025_2026.json --out output/similarity
 # 그 밖의 추가 표(공고이름·목적·내용·대상 열 필수)는 --extra 파일.csv 로 합칩니다
+
+# 기존사업을 내역·내내역사업 단위로 비교하고 공고정보는 보강 자료로만 쓰려면 (biz_struct·gonggo 추출 JSON 필요)
+python similarity/similarity_check.py --level naeyeok --xlsx 공고정보.xlsx --biz biz_2025_2026.json \
+    --struct struct2025/ --struct struct2026/ --parents-full parents_full/ --gonggo gonggo2025/ --gonggo gonggo2026/ \
+    --out output/similarity
 ```
+
+`--level naeyeok` 에서는 예산 구조표(biz_struct) 레벨3·4 항목을 내내역 단위로 만들고(부모 내역사업의 목적·대상·전달체계 상속),
+공고정보는 공고명↔내역사업 매핑표(gonggo)·세부사업명·사업명 대조로 해당 단위에 ①목적·②내용·③대상·④규모를 덧붙입니다.
+매핑 결과는 결과 xlsx 의 「공고매핑」 시트에서 확인할 수 있습니다.
 
 - `similarity/new_project_profile.json` : 협의사업 4개 축 서술(전체·내역사업 단위). 새 협의사업은 이 파일을 바꿔 재사용
 - `similarity/results/` : 「청년 금융혁신 창업·일자리 확대 지원」 분석 결과(개조식 보고서 .md, 전체 순위 .xlsx)

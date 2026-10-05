@@ -201,6 +201,7 @@ def main() -> None:
     ap.add_argument("--struct", action="append", default=[], help="biz_struct 추출 JSON 폴더(레벨>=2), 여러 번 지정 가능")
     ap.add_argument("--parents-full", default=None, help="내내역 보유 내역사업의 전체 텍스트 JSON 폴더")
     ap.add_argument("--gonggo", action="append", default=[], help="gonggo 추출 JSON 폴더(공고명↔내역사업 매핑)")
+    ap.add_argument("--map-threshold", type=float, default=0.6, help="공고명 매칭 Dice 계수 하한")
     ap.add_argument("--extra", action="append", default=[],
                     help="추가 기존사업 표(csv/xlsx). 필수 열: 공고이름, 목적, 내용, 대상 / 선택 열: 부처, 기관, 규모, 설명, 대분류, 중분류, 대상유형, 업종, 정책목적, 신규/기존, 공고링크")
     a = ap.parse_args()
@@ -217,7 +218,7 @@ def main() -> None:
         biz = load_biz(Path(a.biz), tuple(int(y) for y in a.biz_years.split(",")))
         units = build_units(biz, [Path(d) for d in a.struct] or None,
                             Path(a.parents_full) if a.parents_full else None,
-                            [Path(g) for g in a.gonggo], df)
+                            [Path(g) for g in a.gonggo], df, threshold=a.map_threshold)
         units["출처"] = units["단위"]
         print(f"내역사업 {len(biz)}건 → 내역·내내역 단위 {len(units)}건 "
               f"({units['단위'].value_counts().to_dict()}), 공고 매핑 {units.attrs.get('ann_mapped')}건/미매핑 {units.attrs.get('ann_unmapped')}건")
@@ -281,6 +282,8 @@ def main() -> None:
         wdf.to_excel(xw, sheet_name="가중치", index=False)
         for unit, res in sheets.items():
             res.to_excel(xw, sheet_name=unit[:31], index=False)
+        if isinstance(df.attrs.get("mapping_log"), pd.DataFrame):
+            df.attrs["mapping_log"].to_excel(xw, sheet_name="공고매핑", index=False)
     json.dump({"weights": W, "model": a.model, "n_existing": int(len(df)), "top": summary},
               open(out / "top10.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1, default=str)
     print(f"\n저장: {out / 'similarity_scores.xlsx'}")
