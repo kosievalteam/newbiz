@@ -19,7 +19,10 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np
 import openpyxl
@@ -193,6 +196,11 @@ def main() -> None:
     ap.add_argument("--biz", default=None,
                     help="biz_info 내역사업 추출 JSON 파일 또는 폴더(Supabase public.biz, 열 별칭은 load_biz 참고)")
     ap.add_argument("--biz-years", default="2025,2026")
+    ap.add_argument("--level", choices=["announcement", "naeyeok"], default="announcement",
+                    help="naeyeok: 기존사업 단위를 내역·내내역사업으로 구성하고 공고정보는 보강 자료로만 사용")
+    ap.add_argument("--struct", default=None, help="biz_struct 추출 JSON 폴더(레벨>=2)")
+    ap.add_argument("--parents-full", default=None, help="내내역 보유 내역사업의 전체 텍스트 JSON 폴더")
+    ap.add_argument("--gonggo", action="append", default=[], help="gonggo 추출 JSON 폴더(공고명↔내역사업 매핑)")
     ap.add_argument("--extra", action="append", default=[],
                     help="추가 기존사업 표(csv/xlsx). 필수 열: 공고이름, 목적, 내용, 대상 / 선택 열: 부처, 기관, 규모, 설명, 대분류, 중분류, 대상유형, 업종, 정책목적, 신규/기존, 공고링크")
     a = ap.parse_args()
@@ -202,7 +210,19 @@ def main() -> None:
     df = load_existing(Path(a.xlsx))
     df["신규/기존"] = "공고 " + df["신규/기존"].fillna("").astype(str)
     df["출처"] = "공고정보"
-    if a.biz:
+    if a.level == "naeyeok":
+        if not a.biz:
+            raise SystemExit("--level naeyeok 에는 --biz 가 필요합니다")
+        from biz_units import build_units
+        biz = load_biz(Path(a.biz), tuple(int(y) for y in a.biz_years.split(",")))
+        units = build_units(biz, Path(a.struct) if a.struct else None,
+                            Path(a.parents_full) if a.parents_full else None,
+                            [Path(g) for g in a.gonggo], df)
+        units["출처"] = units["단위"]
+        print(f"내역사업 {len(biz)}건 → 내역·내내역 단위 {len(units)}건 "
+              f"({units['단위'].value_counts().to_dict()}), 공고 매핑 {units.attrs.get('ann_mapped')}건/미매핑 {units.attrs.get('ann_unmapped')}건")
+        df = units
+    elif a.biz:
         biz = load_biz(Path(a.biz), tuple(int(y) for y in a.biz_years.split(",")))
         biz["출처"] = "내역사업"
         print(f"내역사업 {len(biz)}건 병합 (연도 {a.biz_years}, 중복 사업은 최신 연도만)")
@@ -224,7 +244,9 @@ def main() -> None:
     sheets: dict[str, pd.DataFrame] = {}
     summary = {}
     for unit, spec in prof["units"].items():
-        res = df[["행", "출처", "부처", "기관", "공고이름", "대분류", "중분류", "대상유형", "업종", "신규/기존", "공고링크"]].copy()
+        cols = ["행", "출처", "부처", "기관", "공고이름", "대분류", "중분류", "대상유형", "업종", "신규/기존", "공고링크"]
+        cols += [c for c in ("단위", "연도", "세부사업명", "내역사업명", "내내역명", "시행방법", "규모", "연계공고") if c in df.columns]
+        res = df[cols].copy()
         total = np.zeros(len(df))
         gtotal = np.zeros(len(df))
         for ax in AXES:
