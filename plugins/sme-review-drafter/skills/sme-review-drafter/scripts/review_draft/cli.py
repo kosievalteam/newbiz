@@ -135,6 +135,25 @@ def cmd_render(json_path, out_dir, name, appendix, similarity_file, similarity_u
         click.echo(str(p))
 
 
+@main.command("similar", help="신규사업 프로필(4개 축 서술 JSON)로 Supabase 벡터 검색을 실행해 상위 후보(top10.json)를 만든다 (2단계).")
+@click.argument("profile", type=click.Path(exists=True, dir_okay=False))
+@click.option("-o", "--out-dir", default="output/similarity", show_default=True)
+@click.option("--top", default=10, show_default=True)
+@click.option("--embed", "how", default="auto", type=click.Choice(["auto", "hf", "local"]), show_default=True, help="임베딩 수단: hf(Hugging Face API, HF_TOKEN) / local(sentence-transformers)")
+@click.option("--years", default="", help="비교 연도 제한, 예: 2026 또는 2025,2026 (기본: 전체)")
+@click.option("--unit", default="전체", show_default=True, help="표로 보여 줄 단위")
+def cmd_similar(profile, out_dir, top, how, years, unit):
+    from .similarity_io import load_similarity, report_to_prompt_text
+    from .similarity_query import run
+
+    prof = json.loads(Path(profile).read_text(encoding="utf-8"))
+    ys = [int(y) for y in years.split(",") if y.strip()] or None
+    click.echo(f"임베딩({how}) → Supabase match_biz 검색 중… 단위: {list(prof.get('units', {}))}", err=True)
+    p = run(prof, out_dir, k=top, how=how, years=ys)
+    click.echo(f"저장: {p}", err=True)
+    click.echo(report_to_prompt_text(load_similarity(p, unit=unit, top=top)))
+
+
 @main.command("similar-top", help="유사도 산출물(xlsx/json)에서 상위 후보를 표로 보여준다 (2단계: 후보 제시).")
 @click.argument("sim_path", type=click.Path(exists=True, dir_okay=False))
 @click.option("--unit", default="전체", show_default=True, help="시트/단위 이름 (예: 전체, 내역1_…)")

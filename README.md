@@ -21,7 +21,7 @@
 | 단계 | 할 일 | 명령 |
 |---|---|---|
 | ① 자료 검토 | 협의요청서·사업설명서 등 참고자료 업로드·추출·파싱 | `review-draft parse 요청서.hwpx`, `review-draft extract 설명서.hwpx` |
-| ② 유사도 검사 | 신규사업 4개 축 서술 ↔ 기존사업(내역·내내역 단위) 임베딩 유사도, **상위 10개 후보 제시** | `python similarity/similarity_check.py …` → `review-draft similar-top 산출물.xlsx` |
+| ② 유사도 검사 | 신규사업 4개 축 서술(프로필 JSON) ↔ Supabase 에 적재된 기존사업 임베딩(내역·내내역 단위, bge-m3) 벡터 검색, **상위 10개 후보 제시** | `review-draft similar 프로필.json` (또는 기존 산출물 `review-draft similar-top 파일.xlsx`) |
 | ③ 유사·중복성 검토 | **상위 3개** 후보를 비교 대상으로 사업목적·대상·내용·방식 대조, 예산·규모는 예산서·공고문(Supabase `public.biz`)으로 확인 | (검토·작성) |
 | ④ 초안 작성 | 검토의견 JSON → 정합성 점검 → .hwpx/.md(+.docx) (〈참고〉 유사도 분석 결과 표 포함) | `review-draft draft 요청서.hwpx --context 설명서.hwpx --similarity 산출물.xlsx` 또는 JSON 작성 후 `check`·`render --similarity` |
 
@@ -144,7 +144,34 @@ claude plugin install sme-review-drafter@kosieval-tools
 배포 전 점검: `python scripts/build_skill.py` (스킬 → `plugins/…/skills/` 동기화) → `claude plugin validate .` → 커밋·푸시.
 로컬 테스트는 `claude --plugin-dir plugins/sme-review-drafter`.
 
-## 유사·중복 후보 임베딩 분석 (`similarity/`)
+## 신규 사업마다 유사도 검색하기 (Supabase 벡터 검색)
+
+팀원이 torch·모델 없이도 신규 사업마다 유사도 검사를 할 수 있도록, 기존사업 임베딩을 Supabase(pgvector) 에 한 번 적재해 두고
+검색 때는 신규 사업의 4개 축 서술만 임베딩합니다.
+
+```
+[분석 담당자, 반기 1회]  embed_corpus.py (bge-m3, 로컬) ─▶ load_embeddings.py ─▶ Supabase public.biz_embedding
+[팀원, 사업마다]        프로필 JSON ─▶ review-draft similar ─▶ (HF Inference API 로 임베딩) ─▶ RPC match_biz ─▶ top10.json
+```
+
+팀원 환경변수(플러그인 설정에서 입력): `SUPABASE_URL`, `SUPABASE_ANON_KEY`(검색 RPC 전용, 코퍼스 직접 조회 불가), `HF_TOKEN`(없으면 로컬 sentence-transformers 사용).
+
+```bash
+# 팀원: 프로필(4개 축 서술) → 상위 10개
+review-draft similar similarity/new_project_profile.json -o output/similarity --years 2026
+review-draft similar-top output/similarity/top10.json --unit 내역1_금융AI실증매칭
+
+# 분석 담당자: 코퍼스 임베딩 적재 (similarity_check.py 산출물의 '전체' 시트가 입력)
+pip install -e ".[similarity]"
+python similarity/embed_corpus.py --xlsx similarity/results/유사도_산출결과_청년금융혁신.xlsx --out output/embeddings
+export SUPABASE_URL=… SUPABASE_ANON_KEY=… BIZ_EMBED_LOAD_TOKEN=…   # 적재 토큰은 관리자에게
+python similarity/load_embeddings.py --dir output/embeddings
+```
+
+DB 객체: 표 `biz_embedding`(4개 축 vector(1024), HNSW 코사인 인덱스, RLS 로 직접 조회 차단), RPC `match_biz`(가중합 상위 k),
+`biz_embedding_stats`, `upsert_biz_embedding`(적재 토큰 검사). 가중치는 지표(안) 20·30·30·15 를 합 100 으로 정규화한 값과 동일합니다.
+
+## 유사·중복 후보 임베딩 분석 (`similarity/`, 분석 담당자용 전체 재산출)
 
 협의사업의 사업목적·지원대상·지원내용·전달체계를 「중앙부처 지원사업 공고정보」 xlsx 의 기존사업과
 BAAI/bge-m3 임베딩으로 비교해 유사·중복 검토 후보를 뽑습니다. 가중치는 「유사·중복사업 대상 선정 분석 지표(안)」

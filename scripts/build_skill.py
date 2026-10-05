@@ -67,6 +67,8 @@ def build(out_dir: Path) -> Path:
     assets.mkdir(exist_ok=True)
     tmpl = json.loads((ROOT / "tests" / "fixtures" / "opinion_sample.json").read_text(encoding="utf-8"))
     (assets / "opinion_template.json").write_text(json.dumps(tmpl, ensure_ascii=False, indent=2), encoding="utf-8")
+    shutil.copy(SRC_SKILL / "profile_template.json", assets / "profile_template.json")
+    (dst / "profile_template.json").unlink(missing_ok=True)
 
     # .skill (zip)
     skill_file = out_dir / "sme-review-drafter.skill"
