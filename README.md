@@ -133,7 +133,12 @@ BAAI/bge-m3 임베딩으로 비교해 유사·중복 검토 후보를 뽑습니�
 (20·30·30·15) 를 합 100 으로 정규화해 적용합니다.
 
 ```bash
-pip install torch sentence-transformers openpyxl pandas
+# torch 설치 (둘 중 하나)
+pip install -e ".[similarity]"                                   # PyPI 기본 wheel (CUDA 포함, 약 3GB) — GPU 없는 PC/서버에서도 동작
+pip install torch --index-url https://download.pytorch.org/whl/cpu && pip install sentence-transformers openpyxl pandas
+#   ↑ CPU 전용 wheel(약 200MB). Claude Code 클라우드 환경에서는 download.pytorch.org 가 기본 네트워크 정책에 막혀 있으므로
+#     환경 설정(세션 제목줄의 클라우드 환경 메뉴 → Edit → Network access)에서 Custom 으로 바꾸고 Allowed domains 에
+#     download.pytorch.org 를 추가하거나, 위의 PyPI 설치를 사용한다. 모델(BAAI/bge-m3, 약 2.2GB)은 huggingface.co 에서 받는다.
 export HF_HUB_DISABLE_XET=1   # Hugging Face Xet 다운로드가 막힌 환경일 때
 python similarity/similarity_check.py --xlsx "2026년 중앙부처 지원사업 공고정보.xlsx" \
     --profile similarity/new_project_profile.json --out output/similarity --top 10

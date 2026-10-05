@@ -188,7 +188,7 @@ def grade(z: float, axis: str) -> tuple[str, float]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--xlsx", required=True)
+    ap.add_argument("--xlsx", default=None, help="「중앙부처 지원사업 공고정보」 xlsx (생략하면 --biz / --extra 자료만으로 비교)")
     ap.add_argument("--profile", default=str(Path(__file__).with_name("new_project_profile.json")))
     ap.add_argument("--out", default="output/similarity")
     ap.add_argument("--model", default="BAAI/bge-m3")
@@ -208,9 +208,14 @@ def main() -> None:
 
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    df = load_existing(Path(a.xlsx))
-    df["신규/기존"] = "공고 " + df["신규/기존"].fillna("").astype(str)
-    df["출처"] = "공고정보"
+    if a.xlsx:
+        df = load_existing(Path(a.xlsx))
+        df["신규/기존"] = "공고 " + df["신규/기존"].fillna("").astype(str)
+        df["출처"] = "공고정보"
+    else:
+        if not (a.biz or a.extra):
+            raise SystemExit("--xlsx 를 생략하려면 --biz 또는 --extra 가 필요합니다")
+        df = pd.DataFrame(columns=EXTRA_COLS + ["행", "개요라인", "출처"])
     if a.level == "naeyeok":
         if not a.biz:
             raise SystemExit("--level naeyeok 에는 --biz 가 필요합니다")
