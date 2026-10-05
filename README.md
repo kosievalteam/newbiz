@@ -133,3 +133,9 @@ python similarity/similarity_check.py --level naeyeok --xlsx 공고정보.xlsx -
 
 - `similarity/new_project_profile.json` : 협의사업 4개 축 서술(전체·내역사업 단위). 새 협의사업은 이 파일을 바꿔 재사용
 - `similarity/results/` : 「청년 금융혁신 창업·일자리 확대 지원」 분석 결과(개조식 보고서 .md, 전체 순위 .xlsx)
+
+## 스킬: 유사·중복 후보 분석 (`.claude/skills/sme-similarity-review/`)
+
+위 `similarity/` 파이프라인을 Claude 스킬로 묶은 것입니다. 요청서 텍스트 추출 → 4개 축 프로필 작성 → 기존사업을
+내역·내내역사업 단위로 구성(공고정보는 보강) → bge-m3 임베딩·지표(안) 가중합 → 후보 10개와 개조식 보고서 작성까지의
+절차와 함정, 자료 추출 방법을 담고 있습니다. 스크립트는 `similarity/` 와 같은 코드이며, 바꿀 때는 두 곳을 함께 고칩니다.
