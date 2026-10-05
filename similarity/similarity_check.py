@@ -129,12 +129,14 @@ def load_biz(path: Path, years: tuple[int, ...] = (2025, 2026), dedupe: bool = T
                + g("gonggo").map(lambda x: f" [공고 지원내용] {x}" if x else "")
                + g("cont").map(lambda x: f" [세부내용] {x}" if x else "")
                + g("calc").map(lambda x: f" [산출근거] {x}" if x else ""))
-    def _won(x: str) -> str:
+    def _won(x: str, label: str) -> str:
+        if not x:
+            return ""
         try:
-            return f"내역예산 {float(x):,.0f}백만원"
+            return f"{label} {float(x):,.0f}백만원"
         except ValueError:
-            return f"내역예산 {x}" if x else ""
-    scale = g("scale").where(g("scale") != "", g("nbud").map(_won))
+            return f"{label} {x}"
+    scale = g("scale").map(lambda x: _won(x, "지원규모")).where(g("scale") != "", g("nbud").map(lambda x: _won(x, "내역예산")))
     meth = g("meth").map(lambda m: ";".join(BIZ_METHOD.get(t.strip(), t.strip()) for t in m.split(";") if t.strip()))
     df = pd.DataFrame({
         "부처": g("gwan"), "기관": g("org"), "공고이름": name, "목적": purpose, "내용": content.str.strip(),
@@ -145,8 +147,10 @@ def load_biz(path: Path, years: tuple[int, ...] = (2025, 2026), dedupe: bool = T
         "행": "biz:" + raw["id"].astype(str), "개요라인": "",
         "시행방법": meth, "연도": raw["yr"].astype(int), "세부사업명": sebu, "내역사업명": nae,
     })
-    if dedupe:  # 동일 (구분, 소관, 세부, 내역) 사업은 최신 연도 1건만 남긴다
-        df = df.sort_values("연도", ascending=False).drop_duplicates(["신규/기존", "부처", "세부사업명", "내역사업명"]).sort_values("행")
+    if dedupe:  # 동일 (구분, 소관, 세부, 내역) 사업은 최신 연도 1건만 남긴다 (공백·기호 차이는 무시)
+        norm = lambda col: df[col].str.replace(r"[\s·ㆍ‧\-_()\[\]]+", "", regex=True).str.lower()
+        df["_k"] = df["신규/기존"] + "|" + norm("부처") + "|" + norm("세부사업명") + "|" + norm("내역사업명")
+        df = df.sort_values("연도", ascending=False).drop_duplicates("_k").sort_values("행").drop(columns="_k")
     return df.reset_index(drop=True)
 
 
