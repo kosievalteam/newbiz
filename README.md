@@ -116,7 +116,10 @@ pip install torch sentence-transformers openpyxl pandas
 export HF_HUB_DISABLE_XET=1   # Hugging Face Xet 다운로드가 막힌 환경일 때
 python similarity/similarity_check.py --xlsx "2026년 중앙부처 지원사업 공고정보.xlsx" \
     --profile similarity/new_project_profile.json --out output/similarity --top 10
-# 내역사업 목록 등 추가 표(공고이름·목적·내용·대상 열 필수)는 --extra 파일.csv 로 합칩니다
+# kosievalteam.github.io/biz_info 의 2025·2026년 내역사업(Supabase public.biz) 을 합치려면
+# similarity/biz_export.sql 로 내보낸 JSON 을 --biz 로 지정합니다 (자료는 로그인 전용이므로 저장소에 올리지 않음)
+python similarity/similarity_check.py --xlsx 공고정보.xlsx --biz biz_2025_2026.json --out output/similarity
+# 그 밖의 추가 표(공고이름·목적·내용·대상 열 필수)는 --extra 파일.csv 로 합칩니다
 ```
 
 - `similarity/new_project_profile.json` : 협의사업 4개 축 서술(전체·내역사업 단위). 새 협의사업은 이 파일을 바꿔 재사용
