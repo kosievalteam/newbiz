@@ -126,6 +126,24 @@ API 호출 없이 추출·파싱·스키마·렌더링·요청 구성을 검증�
 
 스킬 패키지에는 패키지 소스, 작성 규칙, 익명화된 예시 6건, 정합성 점검기, JSON 템플릿이 모두 들어 있습니다.
 예시에 새 검토의견서를 추가하려면 `review-draft exemplar 파일.hwp -o review_draft/prompts/exemplars/` 로 변환한 뒤 다시 빌드합니다.
+## 팀 배포: Claude Code 플러그인
+
+이 저장소는 그 자체가 플러그인 마켓플레이스(`.claude-plugin/marketplace.json`, 이름 `kosieval-tools`)이며,
+`plugins/sme-review-drafter/` 가 플러그인입니다(스킬 + `/sme-review-drafter:review-draft` 명령).
+
+팀원 설치 (Claude Code 터미널에서):
+
+```bash
+claude plugin marketplace add kosievalteam/newbiz          # 기본 브랜치 기준. 특정 브랜치/태그는 kosievalteam/newbiz@<ref>
+claude plugin install sme-review-drafter@kosieval-tools
+# 사용: 요청서를 올리고 "검토의견서 초안 작성해 줘" 또는
+/sme-review-drafter:review-draft 요청서.hwpx 사업설명서.hwpx --similarity 유사도_산출결과.xlsx --consult-no 2026-190
+```
+
+저장소 접근 권한이 있어야 하며(비공개 저장소), 설치 후 `claude plugin update` 로 갱신합니다.
+배포 전 점검: `python scripts/build_skill.py` (스킬 → `plugins/…/skills/` 동기화) → `claude plugin validate .` → 커밋·푸시.
+로컬 테스트는 `claude --plugin-dir plugins/sme-review-drafter`.
+
 ## 유사·중복 후보 임베딩 분석 (`similarity/`)
 
 협의사업의 사업목적·지원대상·지원내용·전달체계를 「중앙부처 지원사업 공고정보」 xlsx 의 기존사업과

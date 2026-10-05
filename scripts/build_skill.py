@@ -77,11 +77,28 @@ def build(out_dir: Path) -> Path:
     return skill_file
 
 
+PLUGIN_SKILLS = ROOT / "plugins" / "sme-review-drafter" / "skills"
+
+
+def sync_plugin(built_dir: Path) -> Path:
+    """빌드된 스킬 폴더를 플러그인(plugins/sme-review-drafter/skills/)에 복사한다. 이 폴더는 저장소에 커밋한다."""
+    dst = PLUGIN_SKILLS / built_dir.name
+    if dst.exists():
+        shutil.rmtree(dst)
+    PLUGIN_SKILLS.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(built_dir, dst, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    return dst
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="dist")
+    ap.add_argument("--no-plugin", action="store_true", help="플러그인 폴더 동기화 생략")
     args = ap.parse_args()
     out = (ROOT / args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     f = build(out)
     print(f"스킬 패키지 생성: {f}")
+    if not args.no_plugin:
+        d = sync_plugin(out / "sme-review-drafter")
+        print(f"플러그인 스킬 동기화: {d}")
