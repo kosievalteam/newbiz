@@ -4,6 +4,7 @@
 사용
   export SUPABASE_URL=https://<ref>.supabase.co SUPABASE_ANON_KEY=... BIZ_EMBED_LOAD_TOKEN=...
   python similarity/load_embeddings.py --dir output/embeddings [--batch 50]
+  (--dir 에는 corpus_meta.json 과 corpus_embeddings.npz 또는 corpus_embeddings_f16.npz 를 둔다)
 """
 
 from __future__ import annotations
@@ -46,7 +47,10 @@ def main():
 
     d = Path(a.dir)
     meta = json.loads((d / "corpus_meta.json").read_text(encoding="utf-8"))
-    emb = np.load(d / "corpus_embeddings.npz")
+    npz = d / "corpus_embeddings.npz"
+    if not npz.exists():
+        npz = d / "corpus_embeddings_f16.npz"  # 전달용 float16 판 (코사인 오차 1e-4 이하)
+    emb = np.load(npz)
     n = len(meta)
     assert all(emb[k].shape[0] == n for k in ("purpose", "content", "target", "delivery")), "메타와 임베딩 건수 불일치"
     vec = lambda arr: "[" + ",".join(f"{x:.6f}" for x in arr.tolist()) + "]"
