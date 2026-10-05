@@ -13,3 +13,6 @@ dist/
 .pytest_cache/
 .venv/
 .env
+
+# 배포 산출물
+dist/

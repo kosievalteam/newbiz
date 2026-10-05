@@ -91,6 +91,9 @@ def cmd_draft(src, out_dir, name, reviewer, consult_no, context_files, exemplar_
     click.echo(f"완료 (model={result.model}, in={u.get('input_tokens')}, cache_read={u.get('cache_read_input_tokens')}, out={u.get('output_tokens')})", err=True)
     for p in paths:
         click.echo(str(p))
+    from .checks import check_opinion
+
+    _print_findings(check_opinion(result.opinion))
     if result.opinion.reviewer_notes:
         click.echo("\n[검토자 확인 메모]", err=True)
         for n in result.opinion.reviewer_notes:
@@ -110,6 +113,28 @@ def cmd_render(json_path, out_dir, name, appendix):
     app = "\n".join(clean_lines(extract_text(appendix))) if appendix else None
     for p in _write_outputs(op, Path(out_dir), name or Path(json_path).stem, appendix=app, write_json=False):
         click.echo(str(p))
+
+
+@main.command("check", help="검토의견 JSON 의 개조식 논리 정합성·표현을 점검한다 (헤드라인–dash 대응, 요약표, 개선의견, 금칙 표현).")
+@click.argument("json_path", type=click.Path(exists=True, dir_okay=False))
+def cmd_check(json_path):
+    from .checks import check_opinion
+    from .schema import ReviewOpinion
+
+    op = ReviewOpinion.model_validate_json(Path(json_path).read_text(encoding="utf-8"))
+    findings = check_opinion(op)
+    _print_findings(findings)
+    sys.exit(1 if any(f.level == "error" for f in findings) else 0)
+
+
+def _print_findings(findings):
+    if not findings:
+        click.echo("정합성 점검: 지적 사항 없음")
+        return
+    errs = sum(1 for f in findings if f.level == "error")
+    click.echo(f"정합성 점검: 오류 {errs}건, 주의 {len(findings) - errs}건")
+    for f in findings:
+        click.echo("  " + str(f))
 
 
 @main.command("exemplar", help="기존 검토의견서(.hwp)를 익명화된 작성 예시(.md)로 변환한다.")

@@ -104,3 +104,16 @@ API 호출 없이 추출·파싱·스키마·렌더링·요청 구성을 검증�
   JSON 은 동일하게 생성되므로 `render_docx.py` 에 레이아웃을 추가하면 됩니다.
 - 암호화된 HWP, HWP 3.x 이하는 읽지 못합니다.
 - 기존 유사사업 정보는 모델 지식에 의존합니다. `--context` 로 최신 공고 자료를 넣는 것을 권장합니다.
+
+## 다른 사람과 공유하기
+
+세 가지 방법이 있으며, 대상에 따라 고르면 됩니다.
+
+| 대상 | 방법 | 만드는 명령 |
+|---|---|---|
+| Claude 를 쓰는 동료 (코딩 불필요) | **Claude 스킬** `sme-review-drafter.skill` 을 전달. 받은 사람이 Claude 에서 스킬을 저장하면 요청서 파일을 올리고 "검토의견서 초안 작성해 줘" 라고만 하면 됨. API 키 없이 대화 중인 Claude 가 직접 작성·점검·렌더링 | `python scripts/build_skill.py` → `dist/sme-review-drafter.skill` |
+| Python 을 쓰는 동료 | **설치 패키지(wheel)** 전달 후 `pip install review_draft-0.1.0-py3-none-any.whl`, `ANTHROPIC_API_KEY` 설정, `review-draft draft 요청서.hwpx` | `pip wheel . -w dist --no-deps` |
+| 함께 개발할 사람 | **GitHub 저장소** 접근 권한 부여 (`git clone` 후 `pip install -e ".[dev]"`) | — |
+
+스킬 패키지에는 패키지 소스, 작성 규칙, 익명화된 예시 6건, 정합성 점검기, JSON 템플릿이 모두 들어 있습니다.
+예시에 새 검토의견서를 추가하려면 `review-draft exemplar 파일.hwp -o review_draft/prompts/exemplars/` 로 변환한 뒤 다시 빌드합니다.
