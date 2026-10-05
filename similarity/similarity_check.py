@@ -198,7 +198,7 @@ def main() -> None:
     ap.add_argument("--biz-years", default="2025,2026")
     ap.add_argument("--level", choices=["announcement", "naeyeok"], default="announcement",
                     help="naeyeok: 기존사업 단위를 내역·내내역사업으로 구성하고 공고정보는 보강 자료로만 사용")
-    ap.add_argument("--struct", default=None, help="biz_struct 추출 JSON 폴더(레벨>=2)")
+    ap.add_argument("--struct", action="append", default=[], help="biz_struct 추출 JSON 폴더(레벨>=2), 여러 번 지정 가능")
     ap.add_argument("--parents-full", default=None, help="내내역 보유 내역사업의 전체 텍스트 JSON 폴더")
     ap.add_argument("--gonggo", action="append", default=[], help="gonggo 추출 JSON 폴더(공고명↔내역사업 매핑)")
     ap.add_argument("--extra", action="append", default=[],
@@ -215,7 +215,7 @@ def main() -> None:
             raise SystemExit("--level naeyeok 에는 --biz 가 필요합니다")
         from biz_units import build_units
         biz = load_biz(Path(a.biz), tuple(int(y) for y in a.biz_years.split(",")))
-        units = build_units(biz, Path(a.struct) if a.struct else None,
+        units = build_units(biz, [Path(d) for d in a.struct] or None,
                             Path(a.parents_full) if a.parents_full else None,
                             [Path(g) for g in a.gonggo], df)
         units["출처"] = units["단위"]

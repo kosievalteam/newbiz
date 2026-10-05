@@ -53,11 +53,12 @@ def _won(x) -> str:
         return str(x) if x else ""
 
 
-def load_struct(path: Path) -> dict[tuple, list[dict]]:
+def load_struct(path: Path | list[Path]) -> dict[tuple, list[dict]]:
     """(yr, 소관, 세부) → [{seq, lvl, item, bud}] 차례순. 레벨3·4 항목에 부모 레벨2 항목명(parent)을 붙인다."""
     by: dict[tuple, list[dict]] = {}
-    for r in _load_rows(path):
-        by.setdefault((int(r["yr"]), r["gwan"], r["sebu"]), []).append(r)
+    for p in (path if isinstance(path, list) else [path]):
+        for r in _load_rows(p):
+            by.setdefault((int(r["yr"]), r["gwan"], r["sebu"]), []).append(r)
     for key, items in by.items():
         items.sort(key=lambda r: int(r["seq"]))
         p2 = p3 = None
@@ -114,7 +115,7 @@ def _tokens_overlap(ann_name: str, child: str, parent_names: str) -> bool:
     return any(x in y or y in x for x in a for y in c)
 
 
-def build_units(biz: pd.DataFrame, struct_dir: Path | None, parents_dir: Path | None,
+def build_units(biz: pd.DataFrame, struct_dir: Path | list[Path] | None, parents_dir: Path | None,
                 gonggo_dirs: list[Path], ann_df: pd.DataFrame | None) -> pd.DataFrame:
     """similarity_check.load_biz 결과(내역사업 단위)를 내역·내내역 단위로 확장하고 공고정보로 보강한다."""
     df = biz.copy()
