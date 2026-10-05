@@ -16,6 +16,15 @@
 > 생성물은 **초안**입니다. 기존 유사사업의 예산·지원규모 등 모델이 기억에 의존해 쓴 수치는 `[확인 필요]` 로 표시되고,
 > 검토자가 확인할 사항이 `reviewer_notes` 와 docx 마지막 장 **[검토자 확인 메모]** 에 정리됩니다. 발송 전 반드시 확인하세요.
 
+## 작업 흐름 (4단계)
+
+| 단계 | 할 일 | 명령 |
+|---|---|---|
+| ① 자료 검토 | 협의요청서·사업설명서 등 참고자료 업로드·추출·파싱 | `review-draft parse 요청서.hwpx`, `review-draft extract 설명서.hwpx` |
+| ② 유사도 검사 | 신규사업 4개 축 서술 ↔ 기존사업(내역·내내역 단위) 임베딩 유사도, **상위 10개 후보 제시** | `python similarity/similarity_check.py …` → `review-draft similar-top 산출물.xlsx` |
+| ③ 유사·중복성 검토 | **상위 3개** 후보를 비교 대상으로 사업목적·대상·내용·방식 대조, 예산·규모는 예산서·공고문(Supabase `public.biz`)으로 확인 | (검토·작성) |
+| ④ 초안 작성 | 검토의견 JSON → 정합성 점검 → .docx/.md (〈참고〉 유사도 분석 결과 표 포함) | `review-draft draft 요청서.hwpx --context 설명서.hwpx --similarity 산출물.xlsx` 또는 JSON 작성 후 `check`·`render --similarity` |
+
 ## 설치
 
 ```bash
@@ -104,3 +113,73 @@ API 호출 없이 추출·파싱·스키마·렌더링·요청 구성을 검증�
   JSON 은 동일하게 생성되므로 `render_docx.py` 에 레이아웃을 추가하면 됩니다.
 - 암호화된 HWP, HWP 3.x 이하는 읽지 못합니다.
 - 기존 유사사업 정보는 모델 지식에 의존합니다. `--context` 로 최신 공고 자료를 넣는 것을 권장합니다.
+
+## 다른 사람과 공유하기
+
+세 가지 방법이 있으며, 대상에 따라 고르면 됩니다.
+
+| 대상 | 방법 | 만드는 명령 |
+|---|---|---|
+| Claude 를 쓰는 동료 (코딩 불필요) | **Claude 스킬** `sme-review-drafter.skill` 을 전달. 받은 사람이 Claude 에서 스킬을 저장하면 요청서 파일을 올리고 "검토의견서 초안 작성해 줘" 라고만 하면 됨. API 키 없이 대화 중인 Claude 가 직접 작성·점검·렌더링 | `python scripts/build_skill.py` → `dist/sme-review-drafter.skill` |
+| Python 을 쓰는 동료 | **설치 패키지(wheel)** 전달 후 `pip install review_draft-0.1.0-py3-none-any.whl`, `ANTHROPIC_API_KEY` 설정, `review-draft draft 요청서.hwpx` | `pip wheel . -w dist --no-deps` |
+| 함께 개발할 사람 | **GitHub 저장소** 접근 권한 부여 (`git clone` 후 `pip install -e ".[dev]"`) | — |
+
+스킬 패키지에는 패키지 소스, 작성 규칙, 익명화된 예시 6건, 정합성 점검기, JSON 템플릿이 모두 들어 있습니다.
+예시에 새 검토의견서를 추가하려면 `review-draft exemplar 파일.hwp -o review_draft/prompts/exemplars/` 로 변환한 뒤 다시 빌드합니다.
+## 팀 배포: Claude Code 플러그인
+
+이 저장소는 그 자체가 플러그인 마켓플레이스(`.claude-plugin/marketplace.json`, 이름 `kosieval-tools`)이며,
+`plugins/sme-review-drafter/` 가 플러그인입니다(스킬 + `/sme-review-drafter:review-draft` 명령).
+
+팀원 설치 (Claude Code 터미널에서):
+
+```bash
+claude plugin marketplace add kosievalteam/newbiz          # 기본 브랜치 기준. 특정 브랜치/태그는 kosievalteam/newbiz@<ref>
+claude plugin install sme-review-drafter@kosieval-tools
+# 사용: 요청서를 올리고 "검토의견서 초안 작성해 줘" 또는
+/sme-review-drafter:review-draft 요청서.hwpx 사업설명서.hwpx --similarity 유사도_산출결과.xlsx --consult-no 2026-190
+```
+
+저장소 접근 권한이 있어야 하며(비공개 저장소), 설치 후 `claude plugin update` 로 갱신합니다.
+배포 전 점검: `python scripts/build_skill.py` (스킬 → `plugins/…/skills/` 동기화) → `claude plugin validate .` → 커밋·푸시.
+로컬 테스트는 `claude --plugin-dir plugins/sme-review-drafter`.
+
+## 유사·중복 후보 임베딩 분석 (`similarity/`)
+
+협의사업의 사업목적·지원대상·지원내용·전달체계를 「중앙부처 지원사업 공고정보」 xlsx 의 기존사업과
+BAAI/bge-m3 임베딩으로 비교해 유사·중복 검토 후보를 뽑습니다. 가중치는 「유사·중복사업 대상 선정 분석 지표(안)」
+(20·30·30·15) 를 합 100 으로 정규화해 적용합니다.
+
+```bash
+# torch 설치 (둘 중 하나)
+pip install -e ".[similarity]"                                   # PyPI 기본 wheel (CUDA 포함, 약 3GB) — GPU 없는 PC/서버에서도 동작
+pip install torch --index-url https://download.pytorch.org/whl/cpu && pip install sentence-transformers openpyxl pandas
+#   ↑ CPU 전용 wheel(약 200MB). Claude Code 클라우드 환경에서는 download.pytorch.org 가 기본 네트워크 정책에 막혀 있으므로
+#     환경 설정(세션 제목줄의 클라우드 환경 메뉴 → Edit → Network access)에서 Custom 으로 바꾸고 Allowed domains 에
+#     download.pytorch.org 를 추가하거나, 위의 PyPI 설치를 사용한다. 모델(BAAI/bge-m3, 약 2.2GB)은 huggingface.co 에서 받는다.
+export HF_HUB_DISABLE_XET=1   # Hugging Face Xet 다운로드가 막힌 환경일 때
+python similarity/similarity_check.py --xlsx "2026년 중앙부처 지원사업 공고정보.xlsx" \
+    --profile similarity/new_project_profile.json --out output/similarity --top 10
+# kosievalteam.github.io/biz_info 의 2025·2026년 내역사업(Supabase public.biz) 을 합치려면
+# similarity/biz_export.sql 로 내보낸 JSON 을 --biz 로 지정합니다 (자료는 로그인 전용이므로 저장소에 올리지 않음)
+python similarity/similarity_check.py --xlsx 공고정보.xlsx --biz biz_2025_2026.json --out output/similarity
+# 그 밖의 추가 표(공고이름·목적·내용·대상 열 필수)는 --extra 파일.csv 로 합칩니다
+
+# 기존사업을 내역·내내역사업 단위로 비교하고 공고정보는 보강 자료로만 쓰려면 (biz_struct·gonggo 추출 JSON 필요)
+python similarity/similarity_check.py --level naeyeok --xlsx 공고정보.xlsx --biz biz_2025_2026.json \
+    --struct struct2025/ --struct struct2026/ --parents-full parents_full/ --gonggo gonggo2025/ --gonggo gonggo2026/ \
+    --out output/similarity
+```
+
+`--level naeyeok` 에서는 예산 구조표(biz_struct) 레벨3·4 항목을 내내역 단위로 만들고(부모 내역사업의 목적·대상·전달체계 상속),
+공고정보는 공고명↔내역사업 매핑표(gonggo)·세부사업명·사업명 대조로 해당 단위에 ①목적·②내용·③대상·④규모를 덧붙입니다.
+매핑 결과는 결과 xlsx 의 「공고매핑」 시트에서 확인할 수 있습니다.
+
+- `similarity/new_project_profile.json` : 협의사업 4개 축 서술(전체·내역사업 단위). 새 협의사업은 이 파일을 바꿔 재사용
+- `similarity/results/` : 「청년 금융혁신 창업·일자리 확대 지원」 분석 결과(개조식 보고서 .md, 전체 순위 .xlsx)
+
+## 스킬: 유사·중복 후보 분석 (`.claude/skills/sme-similarity-review/`)
+
+위 `similarity/` 파이프라인을 Claude 스킬로 묶은 것입니다. 요청서 텍스트 추출 → 4개 축 프로필 작성 → 기존사업을
+내역·내내역사업 단위로 구성(공고정보는 보강) → bge-m3 임베딩·지표(안) 가중합 → 후보 10개와 개조식 보고서 작성까지의
+절차와 함정, 자료 추출 방법을 담고 있습니다. 스크립트는 `similarity/` 와 같은 코드이며, 바꿀 때는 두 곳을 함께 고칩니다.
