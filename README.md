@@ -104,3 +104,20 @@ API 호출 없이 추출·파싱·스키마·렌더링·요청 구성을 검증�
   JSON 은 동일하게 생성되므로 `render_docx.py` 에 레이아웃을 추가하면 됩니다.
 - 암호화된 HWP, HWP 3.x 이하는 읽지 못합니다.
 - 기존 유사사업 정보는 모델 지식에 의존합니다. `--context` 로 최신 공고 자료를 넣는 것을 권장합니다.
+
+## 유사·중복 후보 임베딩 분석 (`similarity/`)
+
+협의사업의 사업목적·지원대상·지원내용·전달체계를 「중앙부처 지원사업 공고정보」 xlsx 의 기존사업과
+BAAI/bge-m3 임베딩으로 비교해 유사·중복 검토 후보를 뽑습니다. 가중치는 「유사·중복사업 대상 선정 분석 지표(안)」
+(20·30·30·15) 를 합 100 으로 정규화해 적용합니다.
+
+```bash
+pip install torch sentence-transformers openpyxl pandas
+export HF_HUB_DISABLE_XET=1   # Hugging Face Xet 다운로드가 막힌 환경일 때
+python similarity/similarity_check.py --xlsx "2026년 중앙부처 지원사업 공고정보.xlsx" \
+    --profile similarity/new_project_profile.json --out output/similarity --top 10
+# 내역사업 목록 등 추가 표(공고이름·목적·내용·대상 열 필수)는 --extra 파일.csv 로 합칩니다
+```
+
+- `similarity/new_project_profile.json` : 협의사업 4개 축 서술(전체·내역사업 단위). 새 협의사업은 이 파일을 바꿔 재사용
+- `similarity/results/` : 「청년 금융혁신 창업·일자리 확대 지원」 분석 결과(개조식 보고서 .md, 전체 순위 .xlsx)
