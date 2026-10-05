@@ -2,6 +2,7 @@
 
 입력
   - 기존사업: 「2026년 중앙부처 지원사업 공고정보」 xlsx (사업개요 열의 ①목적/②내용/③대상/④규모 구조)
+             + (선택) kosievalteam.github.io/biz_info 의 2025·2026년 내역사업 자료(--biz, Supabase public.biz 추출 JSON)
   - 신규사업: new_project_profile.json (사업목적·지원대상·지원내용·전달체계 4개 축 서술, 전체/내역사업 단위)
 방법
   - 축별 텍스트를 BAAI/bge-m3 로 임베딩 → 코사인 유사도
@@ -89,9 +90,73 @@ def load_extra(path: Path) -> pd.DataFrame:
     return df
 
 
+BIZ_METHOD = {"직접": "직접수행", "출연": "기관출연", "보조": "기관보조(국고보조금)", "융자": "융자", "위탁": "외주용역·위탁",
+              "민간경상보조": "민간경상보조", "민간자본보조": "민간자본보조", "출자": "출자"}
+
+
+def load_biz(path: Path, years: tuple[int, ...] = (2025, 2026), dedupe: bool = True) -> pd.DataFrame:
+    """kosievalteam.github.io/biz_info 의 내역사업 자료(Supabase public.biz 추출 JSON/JSONL)를 공통 스키마로 읽는다.
+
+    열 별칭: id, yr, gb(구분), gwan(소관), sebu(세부사업명), nae(내역사업명), nbud(내역예산), sbud(세부예산),
+    npur(내역목적), spur(세부목적, 내역목적과 다를 때만), tgt(수혜대상), meth(세부지원), scale(지원규모), org(세부추진기관),
+    big/mid/small(지원분야 대·중·소분류), ind(지원산업), sfield/nfield(세부·내역분야), gonggo(공고지원내용),
+    cont(세부내용), calc(내역산출근거), law(근거법령), key(예산서키)
+    """
+    rows: list[dict] = []
+    files = sorted(path.glob("**/*.json*")) if path.is_dir() else [path]
+    for f in files:
+        txt = f.read_text(encoding="utf-8").strip()
+        if not txt:
+            continue
+        if f.suffix == ".jsonl":
+            rows += [json.loads(l) for l in txt.splitlines() if l.strip()]
+        else:
+            data = json.loads(txt)
+            rows += data if isinstance(data, list) else [data]
+    raw = pd.DataFrame(rows)
+    raw = raw[raw["yr"].astype(int).isin(years)].copy()
+    raw = raw.drop_duplicates("id")
+    g = lambda c: raw[c].fillna("").astype(str).str.strip() if c in raw.columns else pd.Series([""] * len(raw), index=raw.index)
+    purpose = g("npur").where(g("npur") != "", g("spur"))
+    keep = purpose != ""
+    raw, purpose = raw[keep], purpose[keep]
+    g = lambda c: raw[c].fillna("").astype(str).str.strip() if c in raw.columns else pd.Series([""] * len(raw), index=raw.index)
+    sebu, nae = g("sebu"), g("nae")
+    suffix = pd.Series(" > ", index=raw.index) + nae
+    suffix[(nae == "") | (nae == sebu)] = ""
+    name = raw["yr"].astype(str) + "년 " + sebu + suffix
+    content = (purpose.where(g("spur") == "", g("spur") + " / (내역) " + purpose)
+               + g("gonggo").map(lambda x: f" [공고 지원내용] {x}" if x else "")
+               + g("cont").map(lambda x: f" [세부내용] {x}" if x else "")
+               + g("calc").map(lambda x: f" [산출근거] {x}" if x else ""))
+    def _won(x: str) -> str:
+        try:
+            return f"내역예산 {float(x):,.0f}백만원"
+        except ValueError:
+            return f"내역예산 {x}" if x else ""
+    scale = g("scale").where(g("scale") != "", g("nbud").map(_won))
+    meth = g("meth").map(lambda m: ";".join(BIZ_METHOD.get(t.strip(), t.strip()) for t in m.split(";") if t.strip()))
+    df = pd.DataFrame({
+        "부처": g("gwan"), "기관": g("org"), "공고이름": name, "목적": purpose, "내용": content.str.strip(),
+        "대상": g("tgt"), "규모": scale, "설명": g("law").map(lambda x: f"근거법령 {x}" if x else ""),
+        "대분류": g("big").where(g("big") != "", g("nfield").where(g("nfield") != "", g("sfield"))),
+        "중분류": g("mid"), "대상유형": "", "업종": g("ind"), "정책목적": "", "신규/기존": g("gb") + " 내역사업",
+        "공고링크": "https://kosievalteam.github.io/biz_info/  (예산서키: " + g("key") + ")",
+        "행": "biz:" + raw["id"].astype(str), "개요라인": "",
+        "시행방법": meth, "연도": raw["yr"].astype(int), "세부사업명": sebu, "내역사업명": nae,
+    })
+    if dedupe:  # 동일 (구분, 소관, 세부, 내역) 사업은 최신 연도 1건만 남긴다
+        df = df.sort_values("연도", ascending=False).drop_duplicates(["신규/기존", "부처", "세부사업명", "내역사업명"]).sort_values("행")
+    return df.reset_index(drop=True)
+
+
 def delivery_text(r: pd.Series) -> str:
     org = r["기관"] or ""
-    method = "직접수행" if org == "직접수행" else f"수행기관 {org}(기관보조·위탁)"
+    explicit = r.get("시행방법", "") if isinstance(r.get("시행방법", ""), str) else ""
+    if explicit:
+        method = f"수행기관 {org or '미상'}, 시행방법 {explicit}"
+    else:
+        method = "직접수행" if org == "직접수행" else f"수행기관 {org}(기관보조·위탁)"
     blob = " ".join([r["내용"], r["규모"], r["설명"]])
     kws = []
     for pat, label in DELIVERY_KW:
@@ -121,6 +186,9 @@ def main() -> None:
     ap.add_argument("--out", default="output/similarity")
     ap.add_argument("--model", default="BAAI/bge-m3")
     ap.add_argument("--top", type=int, default=10)
+    ap.add_argument("--biz", default=None,
+                    help="biz_info 내역사업 추출 JSON 파일 또는 폴더(Supabase public.biz, 열 별칭은 load_biz 참고)")
+    ap.add_argument("--biz-years", default="2025,2026")
     ap.add_argument("--extra", action="append", default=[],
                     help="추가 기존사업 표(csv/xlsx). 필수 열: 공고이름, 목적, 내용, 대상 / 선택 열: 부처, 기관, 규모, 설명, 대분류, 중분류, 대상유형, 업종, 정책목적, 신규/기존, 공고링크")
     a = ap.parse_args()
@@ -128,8 +196,17 @@ def main() -> None:
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     df = load_existing(Path(a.xlsx))
+    df["신규/기존"] = "공고 " + df["신규/기존"].fillna("").astype(str)
+    df["출처"] = "공고정보"
+    if a.biz:
+        biz = load_biz(Path(a.biz), tuple(int(y) for y in a.biz_years.split(",")))
+        biz["출처"] = "내역사업"
+        print(f"내역사업 {len(biz)}건 병합 (연도 {a.biz_years}, 중복 사업은 최신 연도만)")
+        df = pd.concat([df, biz], ignore_index=True)
     for extra in a.extra:
-        df = pd.concat([df, load_extra(Path(extra))], ignore_index=True)
+        ex = load_extra(Path(extra)); ex["출처"] = Path(extra).name
+        df = pd.concat([df, ex], ignore_index=True)
+    df = df.fillna("")
     prof = json.load(open(a.profile, encoding="utf-8"))
     print(f"기존사업 {len(df)}건, 신규사업 단위 {list(prof['units'])}")
 
@@ -143,7 +220,7 @@ def main() -> None:
     sheets: dict[str, pd.DataFrame] = {}
     summary = {}
     for unit, spec in prof["units"].items():
-        res = df[["행", "부처", "기관", "공고이름", "대분류", "중분류", "대상유형", "업종", "신규/기존", "공고링크"]].copy()
+        res = df[["행", "출처", "부처", "기관", "공고이름", "대분류", "중분류", "대상유형", "업종", "신규/기존", "공고링크"]].copy()
         total = np.zeros(len(df))
         gtotal = np.zeros(len(df))
         for ax in AXES:
