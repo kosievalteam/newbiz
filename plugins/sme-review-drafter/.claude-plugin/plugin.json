@@ -1,8 +1,8 @@
 {
   "name": "sme-review-drafter",
   "displayName": "사전협의 검토의견서 초안 작성",
-  "version": "0.2.0",
-  "description": "중소기업지원사업 사전협의 요청서(.hwp/.hwpx/.pdf)와 사업설명서를 읽어 정책평가팀 표준 양식의 검토의견서 초안(.docx/.md/.json)을 작성한다. 기존사업 유사도 상위 10개 후보 제시, 상위 3개 기준 유사·중복성 검토, 개조식 논리 정합성 점검을 포함한다.",
+  "version": "0.3.0",
+  "description": "중소기업지원사업 사전협의 요청서(.hwp/.hwpx/.pdf)와 사업설명서를 읽어 정책평가팀 표준 양식의 검토의견서 초안(.hwpx/.md/.json)을 작성한다. 기존사업 유사도 상위 10개 후보 제시, 상위 3개 기준 유사·중복성 검토, 개조식 논리 정합성 점검을 포함한다.",
   "author": { "name": "kosievalteam" },
   "repository": "https://github.com/kosievalteam/newbiz",
   "license": "Proprietary",

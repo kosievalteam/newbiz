@@ -2,14 +2,14 @@
   "name": "kosieval-tools",
   "description": "중소벤처기업연구원 정책평가팀 업무 자동화 플러그인 모음",
   "owner": { "name": "kosievalteam" },
-  "version": "0.2.0",
+  "version": "0.3.0",
   "metadata": { "pluginRoot": "./plugins" },
   "plugins": [
     {
       "name": "sme-review-drafter",
       "source": "./plugins/sme-review-drafter",
       "description": "중소기업지원사업 사전협의 요청서 → 검토의견서 초안 자동 작성 (자료 검토 → 유사도 후보 10개 → 상위 3개 유사·중복성 검토 → 초안·정합성 점검)",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "category": "policy-evaluation",
       "tags": ["사전협의", "검토의견서", "유사중복", "hwp"]
     }
