@@ -1,7 +1,7 @@
 # review-draft — 사전협의 검토의견서 초안 자동 생성
 
 중소기업지원사업 **사전협의 요청서**(.hwp/.hwpx/.pdf)를 읽어, 정책평가팀이 회람하는
-**검토의견서** 초안(.docx/.md/.json)을 자동으로 채워 주는 명령행 도구입니다.
+**검토의견서** 초안(.hwpx/.md/.json, 선택 .docx)을 자동으로 채워 주는 명령행 도구입니다.
 
 - 입력: 별지 1 사전협의 요청서 + 사업기획 자체점검표 + 유사중복 자체점검표 (+ 사업설명서)
 - 출력: 샘플 검토의견서와 동일한 지면 구성
@@ -23,7 +23,7 @@
 | ① 자료 검토 | 협의요청서·사업설명서 등 참고자료 업로드·추출·파싱 | `review-draft parse 요청서.hwpx`, `review-draft extract 설명서.hwpx` |
 | ② 유사도 검사 | 신규사업 4개 축 서술 ↔ 기존사업(내역·내내역 단위) 임베딩 유사도, **상위 10개 후보 제시** | `python similarity/similarity_check.py …` → `review-draft similar-top 산출물.xlsx` |
 | ③ 유사·중복성 검토 | **상위 3개** 후보를 비교 대상으로 사업목적·대상·내용·방식 대조, 예산·규모는 예산서·공고문(Supabase `public.biz`)으로 확인 | (검토·작성) |
-| ④ 초안 작성 | 검토의견 JSON → 정합성 점검 → .docx/.md (〈참고〉 유사도 분석 결과 표 포함) | `review-draft draft 요청서.hwpx --context 설명서.hwpx --similarity 산출물.xlsx` 또는 JSON 작성 후 `check`·`render --similarity` |
+| ④ 초안 작성 | 검토의견 JSON → 정합성 점검 → .hwpx/.md(+.docx) (〈참고〉 유사도 분석 결과 표 포함) | `review-draft draft 요청서.hwpx --context 설명서.hwpx --similarity 산출물.xlsx` 또는 JSON 작성 후 `check`·`render --similarity` |
 
 ## 설치
 
@@ -38,7 +38,7 @@ Python 3.10 이상. HWP 추출은 `olefile` 만으로 동작하며 한컴오피�
 ## 사용법
 
 ```bash
-# 1) 요청서 → 검토의견서 초안 (output/ 에 .json .md .docx 생성)
+# 1) 요청서 → 검토의견서 초안 (output/ 에 .json .md .hwpx 생성, --docx 를 붙이면 .docx 도)
 review-draft draft 요청서.hwp --consult-no 2026-190 --reviewer "홍길동 선임연구원"
 
 # 기존 유사사업 공고문 등 참고자료를 함께 넣으면 비교표·유사중복 판단의 정확도가 올라갑니다
@@ -74,7 +74,7 @@ review-draft draft 요청서.hwp --exemplar-dir my_exemplars/
 ```
 요청서.hwp ─▶ hwp.py (텍스트 추출) ─▶ request_parser.py (항목별 구간 분리)
           ─▶ generator.py (작성 규칙 + 예시 6건 + 요청서 → Claude, JSON 스키마 강제)
-          ─▶ schema.py (ReviewOpinion 검증) ─▶ render_docx.py / render_md.py
+          ─▶ schema.py (ReviewOpinion 검증) ─▶ render_hwpx.py / render_md.py (/ render_docx.py)
 ```
 
 - `request_parser.py` 는 별지 1 의 라벨(신청기관·사업명·사업개요…)과 자체점검표의 두 줄 라벨(추진/근거, 지원/규모…)을

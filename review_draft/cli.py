@@ -68,9 +68,10 @@ def cmd_parse(src, as_json):
 @click.option("--effort", default="high", type=click.Choice(["low", "medium", "high", "xhigh", "max"]), show_default=True)
 @click.option("--max-tokens", default=32000, show_default=True)
 @click.option("--no-fallback", is_flag=True, help="서버측 refusal fallback 비활성화")
-@click.option("--with-appendix", is_flag=True, help="docx 끝에 협의요청서 원문을 참고1 로 첨부")
-@click.option("--no-docx", is_flag=True, help=".docx 생성 생략")
-def cmd_draft(src, out_dir, name, reviewer, consult_no, context_files, similarity_file, similarity_unit, exemplar_dir, model, effort, max_tokens, no_fallback, with_appendix, no_docx):
+@click.option("--with-appendix", is_flag=True, help="문서 끝에 협의요청서 원문을 참고1 로 첨부")
+@click.option("--docx", "with_docx", is_flag=True, help=".hwpx 외에 .docx 도 생성")
+@click.option("--no-hwpx", is_flag=True, help=".hwpx 생성 생략")
+def cmd_draft(src, out_dir, name, reviewer, consult_no, context_files, similarity_file, similarity_unit, exemplar_dir, model, effort, max_tokens, no_fallback, with_appendix, with_docx, no_hwpx):
     from .generator import DEFAULT_MODEL, generate
     from .hwp import clean_lines, extract_text
     from .request_parser import parse_request_file
@@ -97,7 +98,7 @@ def cmd_draft(src, out_dir, name, reviewer, consult_no, context_files, similarit
     if sim_report is not None:
         result.opinion.similarity = sim_report
     base = name or Path(src).stem
-    paths = _write_outputs(result.opinion, Path(out_dir), base, appendix=rf.raw_text if with_appendix else None, docx=not no_docx)
+    paths = _write_outputs(result.opinion, Path(out_dir), base, appendix=rf.raw_text if with_appendix else None, docx=with_docx, hwpx=not no_hwpx)
     u = result.usage or {}
     click.echo(f"완료 (model={result.model}, in={u.get('input_tokens')}, cache_read={u.get('cache_read_input_tokens')}, out={u.get('output_tokens')})", err=True)
     for p in paths:
@@ -111,14 +112,16 @@ def cmd_draft(src, out_dir, name, reviewer, consult_no, context_files, similarit
             click.echo(f"- {n}", err=True)
 
 
-@main.command("render", help="저장된 검토의견 JSON 을 .docx/.md 로 다시 렌더링한다 (수정 후 재출력용).")
+@main.command("render", help="저장된 검토의견 JSON 을 .hwpx/.md(+.docx) 로 다시 렌더링한다 (수정 후 재출력용).")
 @click.argument("json_path", type=click.Path(exists=True, dir_okay=False))
 @click.option("-o", "--out-dir", type=click.Path(file_okay=False), default="output", show_default=True)
 @click.option("--name", help="출력 파일 기본 이름")
 @click.option("--appendix", type=click.Path(exists=True, dir_okay=False), help="참고1 로 첨부할 요청서 파일")
 @click.option("--similarity", "similarity_file", type=click.Path(exists=True, dir_okay=False), help="유사도 산출물(xlsx/json)을 〈참고〉표로 첨부")
 @click.option("--similarity-unit", default="전체", show_default=True)
-def cmd_render(json_path, out_dir, name, appendix, similarity_file, similarity_unit):
+@click.option("--docx", "with_docx", is_flag=True, help=".hwpx 외에 .docx 도 생성")
+@click.option("--no-hwpx", is_flag=True, help=".hwpx 생성 생략")
+def cmd_render(json_path, out_dir, name, appendix, similarity_file, similarity_unit, with_docx, no_hwpx):
     from .hwp import clean_lines, extract_text
     from .schema import ReviewOpinion
 
@@ -128,7 +131,7 @@ def cmd_render(json_path, out_dir, name, appendix, similarity_file, similarity_u
 
         op.similarity = load_similarity(similarity_file, unit=similarity_unit)
     app = "\n".join(clean_lines(extract_text(appendix))) if appendix else None
-    for p in _write_outputs(op, Path(out_dir), name or Path(json_path).stem, appendix=app, write_json=False):
+    for p in _write_outputs(op, Path(out_dir), name or Path(json_path).stem, appendix=app, write_json=False, docx=with_docx, hwpx=not no_hwpx):
         click.echo(str(p))
 
 
@@ -182,8 +185,9 @@ def cmd_exemplar(srcs, out_dir):
     click.echo("※ 생성된 예시에 담당자 성명 등 개인정보가 남아 있지 않은지 확인하세요.", err=True)
 
 
-def _write_outputs(op, out_dir: Path, base: str, *, appendix=None, docx=True, write_json=True) -> list[Path]:
+def _write_outputs(op, out_dir: Path, base: str, *, appendix=None, docx=False, hwpx=True, write_json=True) -> list[Path]:
     from .render_docx import render_docx
+    from .render_hwpx import render_hwpx
     from .render_md import render_md
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -195,6 +199,8 @@ def _write_outputs(op, out_dir: Path, base: str, *, appendix=None, docx=True, wr
     p = out_dir / f"{base}.md"
     p.write_text(render_md(op), encoding="utf-8")
     paths.append(p)
+    if hwpx:
+        paths.append(render_hwpx(op, out_dir / f"{base}.hwpx", appendix_text=appendix))
     if docx:
         paths.append(render_docx(op, out_dir / f"{base}.docx", appendix_text=appendix))
     return paths
