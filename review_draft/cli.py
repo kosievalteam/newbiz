@@ -60,6 +60,9 @@ def cmd_parse(src, as_json):
 @click.option("--consult-no", default="", help="협의번호. 예: 2026-190")
 @click.option("--context", "context_files", multiple=True, type=click.Path(exists=True, dir_okay=False),
               help="참고자료(.txt/.md/.hwp/.pdf). 기존 유사사업 공고 등. 여러 번 지정 가능")
+@click.option("--similarity", "similarity_file", type=click.Path(exists=True, dir_okay=False),
+              help="유사도 분석 산출물(similarity_scores.xlsx 또는 top10.json). 상위 10개를 프롬프트와 문서 〈참고〉표에 반영")
+@click.option("--similarity-unit", default="전체", show_default=True, help="유사도 산출물의 단위(시트) 이름")
 @click.option("--exemplar-dir", type=click.Path(exists=True, file_okay=False), help="자체 예시(.md) 폴더. 생략 시 내장 예시 사용")
 @click.option("--model", default=None, help="모델 ID (기본: claude-opus-5-5, 환경변수 REVIEW_DRAFT_MODEL)")
 @click.option("--effort", default="high", type=click.Choice(["low", "medium", "high", "xhigh", "max"]), show_default=True)
@@ -67,7 +70,7 @@ def cmd_parse(src, as_json):
 @click.option("--no-fallback", is_flag=True, help="서버측 refusal fallback 비활성화")
 @click.option("--with-appendix", is_flag=True, help="docx 끝에 협의요청서 원문을 참고1 로 첨부")
 @click.option("--no-docx", is_flag=True, help=".docx 생성 생략")
-def cmd_draft(src, out_dir, name, reviewer, consult_no, context_files, exemplar_dir, model, effort, max_tokens, no_fallback, with_appendix, no_docx):
+def cmd_draft(src, out_dir, name, reviewer, consult_no, context_files, similarity_file, similarity_unit, exemplar_dir, model, effort, max_tokens, no_fallback, with_appendix, no_docx):
     from .generator import DEFAULT_MODEL, generate
     from .hwp import clean_lines, extract_text
     from .request_parser import parse_request_file
@@ -78,6 +81,12 @@ def cmd_draft(src, out_dir, name, reviewer, consult_no, context_files, exemplar_
         sys.exit(2)
 
     extra = []
+    sim_report = None
+    if similarity_file:
+        from .similarity_io import load_similarity, report_to_prompt_text
+
+        sim_report = load_similarity(similarity_file, unit=similarity_unit)
+        extra.append(report_to_prompt_text(sim_report))
     for cf in context_files:
         extra.append(f"## {Path(cf).name}\n" + "\n".join(clean_lines(extract_text(cf))))
     click.echo(f"요청서 파싱 완료: {rf.사업명.splitlines()[0] if rf.사업명 else '(사업명 미확인)'}", err=True)
@@ -85,6 +94,8 @@ def cmd_draft(src, out_dir, name, reviewer, consult_no, context_files, exemplar_
     result = generate(rf, model=model or DEFAULT_MODEL, reviewer=reviewer, consult_no=consult_no,
                       extra_context="\n\n".join(extra), exemplar_dir=exemplar_dir, effort=effort,
                       max_tokens=max_tokens, use_fallback=not no_fallback)
+    if sim_report is not None:
+        result.opinion.similarity = sim_report
     base = name or Path(src).stem
     paths = _write_outputs(result.opinion, Path(out_dir), base, appendix=rf.raw_text if with_appendix else None, docx=not no_docx)
     u = result.usage or {}
@@ -105,14 +116,32 @@ def cmd_draft(src, out_dir, name, reviewer, consult_no, context_files, exemplar_
 @click.option("-o", "--out-dir", type=click.Path(file_okay=False), default="output", show_default=True)
 @click.option("--name", help="출력 파일 기본 이름")
 @click.option("--appendix", type=click.Path(exists=True, dir_okay=False), help="참고1 로 첨부할 요청서 파일")
-def cmd_render(json_path, out_dir, name, appendix):
+@click.option("--similarity", "similarity_file", type=click.Path(exists=True, dir_okay=False), help="유사도 산출물(xlsx/json)을 〈참고〉표로 첨부")
+@click.option("--similarity-unit", default="전체", show_default=True)
+def cmd_render(json_path, out_dir, name, appendix, similarity_file, similarity_unit):
     from .hwp import clean_lines, extract_text
     from .schema import ReviewOpinion
 
     op = ReviewOpinion.model_validate_json(Path(json_path).read_text(encoding="utf-8"))
+    if similarity_file:
+        from .similarity_io import load_similarity
+
+        op.similarity = load_similarity(similarity_file, unit=similarity_unit)
     app = "\n".join(clean_lines(extract_text(appendix))) if appendix else None
     for p in _write_outputs(op, Path(out_dir), name or Path(json_path).stem, appendix=app, write_json=False):
         click.echo(str(p))
+
+
+@main.command("similar-top", help="유사도 산출물(xlsx/json)에서 상위 후보를 표로 보여준다 (2단계: 후보 제시).")
+@click.argument("sim_path", type=click.Path(exists=True, dir_okay=False))
+@click.option("--unit", default="전체", show_default=True, help="시트/단위 이름 (예: 전체, 내역1_…)")
+@click.option("--top", default=10, show_default=True)
+@click.option("--json", "as_json", is_flag=True, help="SimilarityReport JSON 으로 출력 (검토의견 JSON 의 similarity 필드에 그대로 사용)")
+def cmd_similar_top(sim_path, unit, top, as_json):
+    from .similarity_io import load_similarity, report_to_prompt_text
+
+    rep = load_similarity(sim_path, unit=unit, top=top)
+    click.echo(rep.model_dump_json(indent=2) if as_json else report_to_prompt_text(rep))
 
 
 @main.command("check", help="검토의견 JSON 의 개조식 논리 정합성·표현을 점검한다 (헤드라인–dash 대응, 요약표, 개선의견, 금칙 표현).")

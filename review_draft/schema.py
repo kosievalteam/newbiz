@@ -109,6 +109,29 @@ class ComparisonTable(BaseModel):
     rows: list[list[str]] = Field(description="각 행은 [구분, 값1, 값2, …]. 구분 순서: 사업부서, 사업구조, 사업기간, 지원예산, 사업목적, 수행기관, 지원내용, 지원규모, 지원대상. 셀 내 줄바꿈은 '\\n'")
 
 
+class SimilarityCandidate(BaseModel):
+    """유사도 분석 상위 후보 한 건 (〈참고〉 유사도 분석 결과 표의 행)."""
+
+    순위: int
+    사업명: str = Field(description="예: '핀테크 지원 사업 > 디지털 금융혁신 지원'")
+    부처_기관: str = Field(description="예: '금융위·한국핀테크지원센터'")
+    단위: str = Field(default="", description="'내역' | '내내역' | '공고' 등")
+    종합유사도: float = Field(description="0~100")
+    사업목적: float = Field(default=0.0, description="축별 코사인 유사도 0~1")
+    지원내용: float = Field(default=0.0)
+    지원대상: float = Field(default=0.0)
+    전달체계: float = Field(default=0.0)
+    비고: str = Field(default="", description="예: '비교표 반영(상위 3)', '연계 검토'")
+
+
+class SimilarityReport(BaseModel):
+    """유사도 분석 결과 요약. candidates 가 비어 있으면 문서에 출력하지 않는다."""
+
+    method: str = Field(default="", description="분석 방법·기준 한 줄. 예: '2025·2026년 내역·내내역사업 3,631개 단위, bge-m3 임베딩, 가중치 사업목적 21.05·지원내용 31.58·지원대상 31.58·전달체계 15.79'")
+    candidates: list[SimilarityCandidate] = Field(default_factory=list, description="종합 유사도 상위 10개")
+    notes: list[str] = Field(default_factory=list, description="해석 유의사항. 예: '동일 수행기관 사업은 전달체계 축이 높게 산출'")
+
+
 class ReviewOpinion(BaseModel):
     """검토의견서 전체."""
 
@@ -123,6 +146,7 @@ class ReviewOpinion(BaseModel):
     duplication: AxisOpinion = Field(description="○ (유사·중복성)")
     improvements: list[Improvement] = Field(description="개선의견. 전 항목 동의이면 headline '해당 없음' 1건")
     comparison: ComparisonTable
+    similarity: SimilarityReport = Field(default_factory=SimilarityReport, description="유사도 분석 결과(선택). 비교표의 기존사업은 상위 3개 후보를 토대로 선정")
     reviewer_notes: list[str] = Field(default_factory=list, description="검토자가 확인해야 할 불확실 사항·가정. 문서 본문에는 출력하지 않고 별도 메모로 제공")
 
     def model_json_schema_strict(self) -> dict:  # pragma: no cover - 편의 함수

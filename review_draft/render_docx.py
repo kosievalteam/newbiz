@@ -251,6 +251,16 @@ def render_docx(op: ReviewOpinion, out_path: str | Path, *, appendix_text: str |
     _para(doc, "〈 사업간 비교표 〉", bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=14, space_after=4)
     _grid_table(doc, ["구 분"] + op.comparison.columns, op.comparison.rows, first_col_cm=2.0)
 
+    if op.similarity.candidates:
+        _para(doc, "〈 참고 〉 유사도 분석 결과 (상위 후보)", bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=14, space_after=4)
+        if op.similarity.method:
+            _para(doc, "- 분석 기준: " + op.similarity.method, size=NOTE_PT, indent_cm=0.3, hanging_cm=0.4, color=GREY)
+        rows = [[str(c.순위), c.사업명, c.부처_기관, f"{c.종합유사도:.1f}", f"{c.사업목적:.2f}", f"{c.지원내용:.2f}", f"{c.지원대상:.2f}", f"{c.전달체계:.2f}", c.비고]
+                for c in op.similarity.candidates]
+        _grid_table(doc, ["순위", "기존사업 단위", "부처·기관", "종합", "목적", "내용", "대상", "체계", "비고"], rows, first_col_cm=1.0, size=8)
+        for n in op.similarity.notes:
+            _para(doc, "※ " + n, size=NOTE_PT, indent_cm=0.3, hanging_cm=0.4, color=GREY)
+
     if op.reviewer_notes:
         doc.add_page_break()
         _para(doc, "[검토자 확인 메모] (발송 전 삭제)", bold=True, color=RGBColor(0xC0, 0, 0))

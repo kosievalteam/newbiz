@@ -65,6 +65,14 @@ def render_md(op: ReviewOpinion) -> str:
             L += _dash(d)
     L += ["", "### 〈 사업간 비교표 〉", ""]
     L += _table(["구 분"] + op.comparison.columns, op.comparison.rows)
+    if op.similarity.candidates:
+        L += ["", "### 〈 참고 〉 유사도 분석 결과 (상위 후보)", ""]
+        if op.similarity.method:
+            L.append(f"- 분석 기준: {op.similarity.method}")
+        L.append("")
+        L += _table(["순위", "기존사업 단위", "부처·기관", "종합 유사도", "사업목적", "지원내용", "지원대상", "전달체계", "비고"],
+                    [[c.순위, c.사업명, c.부처_기관, f"{c.종합유사도:.1f}", f"{c.사업목적:.2f}", f"{c.지원내용:.2f}", f"{c.지원대상:.2f}", f"{c.전달체계:.2f}", c.비고] for c in op.similarity.candidates])
+        L += [f"- ※ {n}" for n in op.similarity.notes]
     if op.reviewer_notes:
         L += ["", "### [검토자 확인 메모]", ""] + [f"- {n}" for n in op.reviewer_notes]
     return "\n".join(L) + "\n"

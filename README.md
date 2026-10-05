@@ -16,6 +16,15 @@
 > 생성물은 **초안**입니다. 기존 유사사업의 예산·지원규모 등 모델이 기억에 의존해 쓴 수치는 `[확인 필요]` 로 표시되고,
 > 검토자가 확인할 사항이 `reviewer_notes` 와 docx 마지막 장 **[검토자 확인 메모]** 에 정리됩니다. 발송 전 반드시 확인하세요.
 
+## 작업 흐름 (4단계)
+
+| 단계 | 할 일 | 명령 |
+|---|---|---|
+| ① 자료 검토 | 협의요청서·사업설명서 등 참고자료 업로드·추출·파싱 | `review-draft parse 요청서.hwpx`, `review-draft extract 설명서.hwpx` |
+| ② 유사도 검사 | 신규사업 4개 축 서술 ↔ 기존사업(내역·내내역 단위) 임베딩 유사도, **상위 10개 후보 제시** | `python similarity/similarity_check.py …` → `review-draft similar-top 산출물.xlsx` |
+| ③ 유사·중복성 검토 | **상위 3개** 후보를 비교 대상으로 사업목적·대상·내용·방식 대조, 예산·규모는 예산서·공고문(Supabase `public.biz`)으로 확인 | (검토·작성) |
+| ④ 초안 작성 | 검토의견 JSON → 정합성 점검 → .docx/.md (〈참고〉 유사도 분석 결과 표 포함) | `review-draft draft 요청서.hwpx --context 설명서.hwpx --similarity 산출물.xlsx` 또는 JSON 작성 후 `check`·`render --similarity` |
+
 ## 설치
 
 ```bash
