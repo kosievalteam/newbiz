@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "review-draft"
+version = "0.1.0"
+description = "중소기업지원사업 사전협의 요청서로부터 검토의견서 초안을 자동 생성하는 도구"
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=1.11",
+    "python-docx>=1.1",
+    "pydantic>=2.0",
+    "click>=8.0",
+    "olefile>=0.46",
+]
+
+[project.optional-dependencies]
+pdf = ["pypdf>=4.0"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+review-draft = "review_draft.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["review_draft*"]
+
+[tool.setuptools.package-data]
+review_draft = ["prompts/*.md", "prompts/exemplars/*.json", "prompts/exemplars/*.md"]

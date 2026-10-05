@@ -1,0 +1,15 @@
+# 원본 샘플·개인정보 포함 문서는 저장소에 올리지 않는다
+samples/
+output/
+*.hwp
+*.hwpx
+*.docx
+!tests/fixtures/*.docx
+
+__pycache__/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.venv/
+.env
