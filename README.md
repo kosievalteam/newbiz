@@ -131,7 +131,8 @@ API 호출 없이 추출·파싱·스키마·렌더링·요청 구성을 검증�
 이 저장소는 그 자체가 플러그인 마켓플레이스(`.claude-plugin/marketplace.json`, 이름 `kosieval-tools`)이며,
 `plugins/sme-review-drafter/` 가 플러그인입니다(스킬 + `/sme-review-drafter:review-draft` 명령).
 
-팀원 설치 (Claude Code 터미널에서):
+팀원 설치 (Claude Code 터미널에서). 준비물·설정값·문제 해결을 포함한 안내문은 Notion 「검토의견서 초안 작성 플러그인 설치 안내」
+(https://app.notion.com/p/3f1378aa37898175a0d7cdec60723027)에 있습니다.
 
 ```bash
 claude plugin marketplace add kosievalteam/newbiz          # 기본 브랜치 기준. 특정 브랜치/태그는 kosievalteam/newbiz@<ref>
