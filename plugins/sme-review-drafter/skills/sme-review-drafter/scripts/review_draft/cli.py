@@ -140,7 +140,7 @@ def cmd_render(json_path, out_dir, name, appendix, similarity_file, similarity_u
 @click.argument("profile", type=click.Path(exists=True, dir_okay=False))
 @click.option("-o", "--out-dir", default="output/similarity", show_default=True)
 @click.option("--top", default=10, show_default=True)
-@click.option("--embed", "how", default="auto", type=click.Choice(["auto", "hf", "local"]), show_default=True, help="임베딩 수단: hf(Hugging Face API, HF_TOKEN) / local(sentence-transformers)")
+@click.option("--embed", "how", default="auto", type=click.Choice(["auto", "local", "hf"]), show_default=True, help="임베딩 수단. 기본은 로컬 sentence-transformers(bge-m3). hf 는 Hugging Face Inference API(HF_TOKEN 필요)")
 @click.option("--years", default="", help="비교 연도 제한, 예: 2026 또는 2025,2026 (기본: 전체)")
 @click.option("--unit", default="전체", show_default=True, help="표로 보여 줄 단위")
 def cmd_similar(profile, out_dir, top, how, years, unit):
@@ -167,7 +167,12 @@ def cmd_similar_check():
         raise click.ClickException("연결은 되었으나 적재된 기존사업이 없습니다. 분석 담당자에게 적재를 요청하세요.")
     years = ", ".join(str(y) for y in st.get("years") or [])
     click.echo(f"연결 확인: 기존사업 {st.get('n'):,}건 (연도 {years}, 모델 {st.get('model')}, 갱신 {st.get('updated_at')})")
-    click.echo("HF_TOKEN 설정됨" if os.environ.get("HF_TOKEN") else "HF_TOKEN 없음: 로컬 sentence-transformers 가 설치되어 있어야 임베딩이 됩니다")
+    from .similarity_query import INSTALL_HINT, local_available
+
+    if local_available():
+        click.echo("임베딩: 로컬 sentence-transformers 설치됨 (첫 실행 때 bge-m3 모델 약 2.2GB 를 내려받습니다)")
+    else:
+        raise click.ClickException(f"sentence-transformers 가 설치되어 있지 않습니다. 설치: {INSTALL_HINT}")
 
 
 @main.command("similar-top", help="유사도 산출물(xlsx/json)에서 상위 후보를 표로 보여준다 (2단계: 후보 제시).")

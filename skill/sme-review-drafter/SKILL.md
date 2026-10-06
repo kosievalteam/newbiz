@@ -50,8 +50,9 @@ python scripts/rd.py extract 사업설명서.hwpx      # 첨부 설명서·공�
 기존사업 비교 대상은 기억이 아니라 유사도 검색 결과에서 고른다. 신규 사업마다 새로 검색한다.
 
 **(a) 기본 경로: Supabase 벡터 검색** — 기존사업 3,631개 단위(2025·2026년 내역·내내역사업)의 bge-m3 임베딩이 Supabase 에 적재되어 있다.
-신규 사업의 4개 축 서술만 임베딩해 상위 후보를 받아 온다. 환경변수(플러그인 설정 userConfig 로 주입) `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
-`HF_TOKEN`(Hugging Face Inference API; 로컬에 sentence-transformers 가 있으면 생략 가능)이 필요하다.
+신규 사업의 4개 축 서술만 로컬 sentence-transformers(bge-m3)로 임베딩해 상위 후보를 받아 온다. 환경변수(플러그인 설정 userConfig 로 주입)
+`SUPABASE_URL`, `SUPABASE_ANON_KEY` 와 파이썬 패키지 `sentence-transformers` 가 필요하다(없으면 `pip install sentence-transformers`;
+GPU 없는 PC 는 먼저 `pip install torch --index-url https://download.pytorch.org/whl/cpu`). 첫 실행 때 모델(약 2.2GB)을 내려받으므로 몇 분 걸린다고 미리 알린다.
 
 1. 요청서·설명서를 읽고 **프로필 JSON** 을 쓴다 (`assets/profile_template.json` 복사). 4개 축은 검색 품질을 좌우하므로 각 축을 2~4문장, 구체 명사 위주로 쓴다.
    - 사업목적: 무엇을 왜 하는가 + 근거 정책·성과지표

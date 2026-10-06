@@ -51,3 +51,53 @@ def test_embed_requires_means(monkeypatch):
     monkeypatch.delenv("HF_TOKEN", raising=False)
     with pytest.raises(RuntimeError):
         sq.embed_hf(["x"], token=None)
+
+
+def test_embed_defaults_to_local_and_reports_missing_package(monkeypatch):
+    monkeypatch.setenv("HF_TOKEN", "t")  # 토큰이 있어도 기본 경로는 로컬
+    monkeypatch.setattr(sq, "local_available", lambda: False)
+    with pytest.raises(RuntimeError, match="sentence-transformers"):
+        sq.embed(["x"])
+    called = []
+    monkeypatch.setattr(sq, "local_available", lambda: True)
+    monkeypatch.setattr(sq, "embed_local", lambda texts: called.append(texts) or [[1.0]])
+    assert sq.embed(["x"]) == [[1.0]] and called == [["x"]]
+
+
+def test_post_retries_on_statement_timeout(monkeypatch):
+    import io
+    import urllib.error
+
+    calls = []
+
+    def fake_urlopen(req, timeout=0):
+        calls.append(req.full_url)
+        if len(calls) < 3:
+            raise urllib.error.HTTPError(req.full_url, 500, "err", {}, io.BytesIO(b'{"code":"57014","message":"canceling statement due to statement timeout"}'))
+
+        class R:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return b"[1]"
+
+        return R()
+
+    monkeypatch.setattr(sq.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(sq.time, "sleep", lambda s: None)
+    assert sq._post("https://x/rest/v1/rpc/match_biz", {}, {}) == [1] and len(calls) == 3
+
+    calls.clear()
+
+    def bad(req, timeout=0):
+        calls.append(1)
+        raise urllib.error.HTTPError(req.full_url, 401, "u", {}, io.BytesIO(b"Unauthorized"))
+
+    monkeypatch.setattr(sq.urllib.request, "urlopen", bad)
+    with pytest.raises(RuntimeError, match="HTTP 401"):
+        sq._post("https://x/rest/v1/rpc/match_biz", {}, {})
+    assert len(calls) == 1

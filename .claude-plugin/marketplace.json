@@ -4,7 +4,7 @@
   "owner": {
     "name": "kosievalteam"
   },
-  "version": "0.4.0",
+  "version": "0.4.1",
   "metadata": {
     "pluginRoot": "./plugins"
   },
@@ -13,7 +13,7 @@
       "name": "sme-review-drafter",
       "source": "./plugins/sme-review-drafter",
       "description": "중소기업지원사업 사전협의 요청서 → 검토의견서 초안(.hwpx) 자동 작성 (자료 검토 → Supabase 벡터 검색으로 유사도 후보 10개 → 상위 3개 유사·중복성 검토 → 초안·정합성 점검)",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "category": "policy-evaluation",
       "tags": [
         "사전협의",

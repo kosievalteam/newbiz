@@ -1,17 +1,19 @@
 """신규 협의사업 ↔ 기존사업 유사도 검색 (Supabase pgvector + bge-m3).
 
-흐름: 4개 축 서술(프로필) → 임베딩(HF 추론 API 또는 로컬 bge-m3) → RPC match_biz → 상위 k 후보 (top10.json 형식).
+흐름: 4개 축 서술(프로필) → 임베딩(로컬 sentence-transformers bge-m3, 기본) → RPC match_biz → 상위 k 후보 (top10.json 형식).
 출력 형식은 similarity_check.py 의 top10.json 과 같아 `review-draft similar-top` 으로 그대로 읽을 수 있다.
 
 필요한 환경변수
   SUPABASE_URL, SUPABASE_ANON_KEY          : 검색 RPC 호출 (anon 키로 충분, 코퍼스 직접 조회는 불가)
-  HF_TOKEN (임베딩 방식 hf 일 때)           : Hugging Face Inference API 토큰
+  HF_TOKEN (선택, --embed hf 일 때만)       : Hugging Face Inference API 토큰. 기본 경로는 로컬 모델이며 토큰이 필요 없다.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -20,13 +22,25 @@ AXIS_KEY = {"사업목적": "purpose", "지원내용": "content", "지원대상"
 RAW_W = {"사업목적": 20, "지원내용": 30, "지원대상": 30, "전달체계": 15}
 W = {k: v / sum(RAW_W.values()) * 100 for k, v in RAW_W.items()}
 MODEL = "BAAI/bge-m3"
+MAX_SEQ = 512  # 코퍼스 임베딩(embed_corpus.py --max-seq 512)과 동일하게 맞춘다
+_LOCAL_MODEL = None
 HF_URL = "https://router.huggingface.co/hf-inference/models/BAAI/bge-m3/pipeline/feature-extraction"
 
 
-def _post(url: str, headers: dict, payload, timeout: int = 180):
-    req = urllib.request.Request(url, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"), headers={"Content-Type": "application/json", **headers}, method="POST")
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode("utf-8"))
+def _post(url: str, headers: dict, payload, timeout: int = 180, retries: int = 3):
+    """POST JSON. DB 캐시가 식어 있으면 첫 질의가 statement timeout(57014, HTTP 500)으로 끝나므로 같은 요청을 몇 번 더 보낸다."""
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    for attempt in range(retries + 1):
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json", **headers}, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", "replace")
+            if e.code in (500, 503, 504) and attempt < retries and ("57014" in body or "timeout" in body.lower()):
+                time.sleep(2 * (attempt + 1))
+                continue
+            raise RuntimeError(f"HTTP {e.code} {url.rsplit('/', 1)[-1]}: {body[:200]}") from e
 
 
 def _normalize(v: list[float]) -> list[float]:
@@ -56,24 +70,42 @@ def embed_hf(texts: list[str], token: str | None = None) -> list[list[float]]:
     return out
 
 
-def embed_local(texts: list[str]) -> list[list[float]]:
-    from sentence_transformers import SentenceTransformer  # 선택 의존성
+def local_available() -> bool:
+    """sentence-transformers(및 torch)가 설치되어 있는지."""
+    try:
+        import sentence_transformers  # noqa: F401
+    except ImportError:
+        return False
+    return True
 
-    model = SentenceTransformer(MODEL, device="cpu")
+
+def _local_model():
+    global _LOCAL_MODEL
+    if _LOCAL_MODEL is None:
+        from sentence_transformers import SentenceTransformer  # 선택 의존성
+
+        m = SentenceTransformer(MODEL, device="cpu")
+        m.max_seq_length = MAX_SEQ
+        _LOCAL_MODEL = m
+    return _LOCAL_MODEL
+
+
+def embed_local(texts: list[str]) -> list[list[float]]:
+    """로컬 bge-m3 (첫 실행 시 huggingface.co 에서 모델 약 2.2GB 를 내려받아 캐시한다)."""
+    model = _local_model()
     return [list(map(float, v)) for v in model.encode(texts, normalize_embeddings=True, batch_size=4, show_progress_bar=False)]
 
 
+INSTALL_HINT = "pip install sentence-transformers  (GPU 없는 PC 는 먼저 pip install torch --index-url https://download.pytorch.org/whl/cpu)"
+
+
 def embed(texts: list[str], how: str = "auto") -> list[list[float]]:
+    """기본(auto)은 로컬 sentence-transformers. 'hf' 를 명시한 경우에만 Hugging Face Inference API 를 쓴다."""
     if how == "hf":
         return embed_hf(texts)
-    if how == "local":
-        return embed_local(texts)
-    if os.environ.get("HF_TOKEN"):
-        return embed_hf(texts)
-    try:
-        return embed_local(texts)
-    except ImportError as e:
-        raise RuntimeError("임베딩 수단이 없습니다. HF_TOKEN 을 설정하거나 sentence-transformers 를 설치하세요.") from e
+    if not local_available():
+        raise RuntimeError(f"sentence-transformers 가 설치되어 있지 않습니다. 설치: {INSTALL_HINT}")
+    return embed_local(texts)
 
 
 def stats() -> dict:

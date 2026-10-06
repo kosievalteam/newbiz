@@ -136,7 +136,9 @@ API 호출 없이 추출·파싱·스키마·렌더링·요청 구성을 검증�
 
 ```bash
 claude plugin marketplace add kosievalteam/newbiz          # 기본 브랜치 기준. 특정 브랜치/태그는 kosievalteam/newbiz@<ref>
-claude plugin install sme-review-drafter@kosieval-tools
+claude plugin install sme-review-drafter@kosieval-tools \
+  --config supabase_url=https://<ref>.supabase.co --config supabase_anon_key=<anon 키>   # 설정값은 팀 Notion 안내문 참고
+pip install torch --index-url https://download.pytorch.org/whl/cpu && pip install sentence-transformers   # 유사도 검색용 로컬 임베딩(한 번만)
 # 사용: 요청서를 올리고 "검토의견서 초안 작성해 줘" 또는
 /sme-review-drafter:review-draft 요청서.hwpx 사업설명서.hwpx --similarity 유사도_산출결과.xlsx --consult-no 2026-190
 ```
@@ -152,10 +154,12 @@ claude plugin install sme-review-drafter@kosieval-tools
 
 ```
 [분석 담당자, 반기 1회]  embed_corpus.py (bge-m3, 로컬) ─▶ load_embeddings.py ─▶ Supabase public.biz_embedding
-[팀원, 사업마다]        프로필 JSON ─▶ review-draft similar ─▶ (HF Inference API 로 임베딩) ─▶ RPC match_biz ─▶ top10.json
+[팀원, 사업마다]        프로필 JSON ─▶ review-draft similar ─▶ (로컬 sentence-transformers 로 임베딩) ─▶ RPC match_biz ─▶ top10.json
 ```
 
-팀원 환경변수(플러그인 설정에서 입력): `SUPABASE_URL`, `SUPABASE_ANON_KEY`(검색 RPC 전용, 코퍼스 직접 조회 불가), `HF_TOKEN`(없으면 로컬 sentence-transformers 사용).
+팀원 환경변수(플러그인 설정에서 입력): `SUPABASE_URL`, `SUPABASE_ANON_KEY`(검색 RPC 전용, 코퍼스 직접 조회 불가).
+임베딩은 로컬 `sentence-transformers`(bge-m3, 첫 실행 때 약 2.2GB 다운로드)로 하며, `--embed hf` + `HF_TOKEN` 으로 Hugging Face Inference API 를 쓸 수도 있다(미검증).
+연결·설치 확인: `review-draft similar-check`.
 
 ```bash
 # 팀원: 프로필(4개 축 서술) → 상위 10개
