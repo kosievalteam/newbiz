@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -202,6 +203,7 @@ def main() -> None:
     ap.add_argument("--parents-full", default=None, help="내내역 보유 내역사업의 전체 텍스트 JSON 폴더")
     ap.add_argument("--gonggo", action="append", default=[], help="gonggo 추출 JSON 폴더(공고명↔내역사업 매핑)")
     ap.add_argument("--map-threshold", type=float, default=0.6, help="공고명 매칭 Dice 계수 하한")
+    ap.add_argument("--cache-dir", default=None, help="기존사업 임베딩 캐시 폴더(축별 텍스트 해시가 같으면 재사용)")
     ap.add_argument("--extra", action="append", default=[],
                     help="추가 기존사업 표(csv/xlsx). 필수 열: 공고이름, 목적, 내용, 대상 / 선택 열: 부처, 기관, 규모, 설명, 대분류, 중분류, 대상유형, 업종, 정책목적, 신규/기존, 공고링크")
     a = ap.parse_args()
@@ -240,7 +242,19 @@ def main() -> None:
     enc = lambda xs: model.encode(xs, normalize_embeddings=True, batch_size=16, show_progress_bar=False)
 
     texts = axis_texts(df)
-    emb = {ax: enc(texts[ax]) for ax in AXES}
+    emb = {}
+    cache_dir = Path(a.cache_dir) if a.cache_dir else None
+    for ax in AXES:
+        key = hashlib.md5((a.model + "\n" + "\x1e".join(texts[ax])).encode("utf-8")).hexdigest()
+        cf = cache_dir / f"emb_{ax}_{key}.npy" if cache_dir else None
+        if cf and cf.exists():
+            emb[ax] = np.load(cf)
+            print(f"[{ax}] 임베딩 캐시 사용 {cf.name}")
+        else:
+            emb[ax] = enc(texts[ax])
+            if cf:
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                np.save(cf, emb[ax])
 
     sheets: dict[str, pd.DataFrame] = {}
     summary = {}
