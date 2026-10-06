@@ -76,6 +76,15 @@ def embed(texts: list[str], how: str = "auto") -> list[list[float]]:
         raise RuntimeError("임베딩 수단이 없습니다. HF_TOKEN 을 설정하거나 sentence-transformers 를 설치하세요.") from e
 
 
+def stats() -> dict:
+    """Supabase 연결·키 확인: 적재된 기존사업 수, 연도, 모델, 갱신 시각."""
+    url, key = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY")
+    if not (url and key):
+        raise RuntimeError("SUPABASE_URL, SUPABASE_ANON_KEY 가 필요합니다")
+    rows = _post(f"{url.rstrip('/')}/rest/v1/rpc/biz_embedding_stats", {"apikey": key, "Authorization": f"Bearer {key}"}, {})
+    return rows[0] if isinstance(rows, list) and rows else {}
+
+
 def match(vectors: dict[str, list[float]], k: int = 10, years: list[int] | None = None) -> list[dict]:
     url, key = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY")
     if not (url and key):
@@ -104,17 +113,16 @@ def run(profile: dict, out_dir: str | Path, *, k: int = 10, how: str = "auto", y
     """profile = {"사업명":…, "units": {"전체": {"사업목적":…, "지원내용":…, "지원대상":…, "전달체계":…}, …}}"""
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    stats = None
     try:
-        stats = _post(f"{os.environ['SUPABASE_URL'].rstrip('/')}/rest/v1/rpc/biz_embedding_stats", {"apikey": os.environ["SUPABASE_ANON_KEY"], "Authorization": f"Bearer {os.environ['SUPABASE_ANON_KEY']}"}, {})
+        st = stats()
     except Exception:  # noqa: BLE001
-        pass
+        st = {}
     top = {}
     for unit, spec in profile["units"].items():
         texts = [spec[ax] for ax in AXES]
         vecs = dict(zip(AXES, embed(texts, how)))
         top[unit] = to_top_rows(match(vecs, k=k, years=years))
-    n = (stats[0]["n"] if isinstance(stats, list) and stats else None)
+    n = st.get("n")
     result = {"weights": W, "model": MODEL, "n_existing": n, "source": "supabase:match_biz", "top": top}
     (out / "top10.json").write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
     return out / "top10.json"

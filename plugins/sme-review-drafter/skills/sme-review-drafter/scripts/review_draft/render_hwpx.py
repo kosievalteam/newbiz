@@ -410,3 +410,56 @@ def render_hwpx(op: ReviewOpinion, out_path: str | Path, *, appendix_text: str |
         ):
             zf.writestr(name, data.encode("utf-8"), compress_type=zipfile.ZIP_DEFLATED)
     return out
+
+
+# ---------------------------------------------------------------------------
+# 범용 문서 (안내문 등): 간단한 블록 목록 → hwpx
+# ---------------------------------------------------------------------------
+
+def render_simple_doc(title: str, blocks: list[tuple], out_path: str | Path, *, byline: str = "") -> Path:
+    """blocks 항목: ("h1"|"h2"|"p"|"note", text) · ("ol"|"ul"|"check", [items]) · ("code", text) · ("table", header, rows)"""
+    st = _Styles(_asset("hwpx_header.xml"))
+    b = _Body(st)
+    first = (
+        f'<hp:p id="0" paraPrIDRef="{st.para["title"]}" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">'
+        f'<hp:run charPrIDRef="{st.char["title"]}">{_asset("hwpx_secpr.xml")}<hp:ctrl><hp:colPr id="" type="NEWSPAPER" layout="LEFT" colCount="1" sameSz="1" sameGap="0"/></hp:ctrl>'
+        f"<hp:t>{escape(title)}</hp:t></hp:run></hp:p>"
+    )
+    b.parts.append(first)
+    b.plain.append(title)
+    if byline:
+        b.p(byline, "center", "note")
+    for blk in blocks:
+        kind = blk[0]
+        if kind == "h1":
+            b.p(blk[1], "h1", "h1")
+        elif kind == "h2":
+            b.p(blk[1], "h2", "h2")
+        elif kind == "p":
+            b.p(blk[1], "left", "body")
+        elif kind == "note":
+            b.p(blk[1], "left", "note")
+        elif kind in ("ol", "ul", "check"):
+            for i, item in enumerate(blk[1], 1):
+                mark = f"{i}. " if kind == "ol" else ("□ " if kind == "check" else "- ")
+                b.p(mark + item, "dash", "body")
+        elif kind == "code":
+            lines = [(l, "cell", "td") for l in blk[1].splitlines()] or [("", "cell", "td")]
+            b.box(lines, "box", 520 * len(lines) + 300)
+        elif kind == "table":
+            header, rows = blk[1], blk[2]
+            b.grid_table(header, rows, first_w=blk[3] if len(blk) > 3 else 9000)
+        elif kind == "blank":
+            b.blank()
+    sec = f'{_XMLDECL}<hs:sec {_NS}>' + "".join(b.parts) + "</hs:sec>"
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(str(out), "w") as zf:
+        zf.writestr(zipfile.ZipInfo("mimetype"), "application/hwp+zip", compress_type=zipfile.ZIP_STORED)
+        for name, data in (
+            ("version.xml", _VERSION), ("META-INF/container.xml", _CONTAINER), ("META-INF/manifest.xml", _MANIFEST),
+            ("Contents/content.hpf", _content_hpf(title)), ("Contents/header.xml", st.header), ("Contents/section0.xml", sec),
+            ("settings.xml", _SETTINGS), ("Preview/PrvText.txt", "\n".join(b.plain)[:4000]),
+        ):
+            zf.writestr(name, data.encode("utf-8"), compress_type=zipfile.ZIP_DEFLATED)
+    return out

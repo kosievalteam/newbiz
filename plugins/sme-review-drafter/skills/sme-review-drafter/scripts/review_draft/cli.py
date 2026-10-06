@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -152,6 +153,21 @@ def cmd_similar(profile, out_dir, top, how, years, unit):
     p = run(prof, out_dir, k=top, how=how, years=ys)
     click.echo(f"저장: {p}", err=True)
     click.echo(report_to_prompt_text(load_similarity(p, unit=unit, top=top)))
+
+
+@main.command("similar-check", help="Supabase 연결과 키를 확인한다 (적재된 기존사업 수·연도·갱신 시각 출력).")
+def cmd_similar_check():
+    from .similarity_query import stats
+
+    try:
+        st = stats()
+    except Exception as e:  # noqa: BLE001
+        raise click.ClickException(f"연결 실패: {e}") from e
+    if not st:
+        raise click.ClickException("연결은 되었으나 적재된 기존사업이 없습니다. 분석 담당자에게 적재를 요청하세요.")
+    years = ", ".join(str(y) for y in st.get("years") or [])
+    click.echo(f"연결 확인: 기존사업 {st.get('n'):,}건 (연도 {years}, 모델 {st.get('model')}, 갱신 {st.get('updated_at')})")
+    click.echo("HF_TOKEN 설정됨" if os.environ.get("HF_TOKEN") else "HF_TOKEN 없음: 로컬 sentence-transformers 가 설치되어 있어야 임베딩이 됩니다")
 
 
 @main.command("similar-top", help="유사도 산출물(xlsx/json)에서 상위 후보를 표로 보여준다 (2단계: 후보 제시).")

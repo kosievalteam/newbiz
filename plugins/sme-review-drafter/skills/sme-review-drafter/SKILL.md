@@ -59,9 +59,10 @@ python scripts/rd.py extract 사업설명서.hwpx      # 첨부 설명서·공�
    - 지원내용: 단계·프로그램·단가·건수, 지원 방식(바우처·보조·실증·교육…)
    - 전달체계: 주관부처 → 수행기관 → 수혜자, 시행방법(기관보조·위탁 등), 자부담
    - 내역사업이 2개 이상이면 `units` 에 전체 + 내역별 단위를 함께 둔다 (내역별 상위 후보도 보고에 쓴다).
-2. `python scripts/rd.py similar 프로필.json -o output/similarity` → `output/similarity/top10.json` 과 상위 10개 표.
+2. (처음 한 번 또는 설정 의심 시) `python scripts/rd.py similar-check` 로 Supabase 연결·키를 확인한다. 사용자가 "유사도 검색 연결 확인"을 요청하면 이 명령만 실행해 결과를 전한다.
+3. `python scripts/rd.py similar 프로필.json -o output/similarity` → `output/similarity/top10.json` 과 상위 10개 표.
    `--years 2026` 으로 최신 연도만 볼 수 있고, `--unit 내역1_…` 로 내역별 표를 본다.
-3. 검색이 실패(키 없음·네트워크)하면 사용자에게 설정을 요청하고, 그래도 안 되면 모델 지식으로 대신하되 reviewer_notes 첫 줄에 그 사실을 적는다.
+4. 검색이 실패(키 없음·네트워크)하면 사용자에게 설정을 요청하고, 그래도 안 되면 모델 지식으로 대신하되 reviewer_notes 첫 줄에 그 사실을 적는다.
 
 **(b) 산출물을 이미 받은 경우** — `similarity_scores.xlsx` 또는 `top10.json` 이 있으면 `python scripts/rd.py similar-top 파일` 로 바로 표를 만든다.
 
