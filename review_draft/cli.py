@@ -142,15 +142,23 @@ def cmd_render(json_path, out_dir, name, appendix, similarity_file, similarity_u
 @click.option("--embed", "how", default="auto", type=click.Choice(["auto", "hf", "local"]), show_default=True, help="임베딩 수단: hf(Hugging Face API, HF_TOKEN) / local(sentence-transformers)")
 @click.option("--years", default="", help="비교 연도 제한, 예: 2026 또는 2025,2026 (기본: 전체)")
 @click.option("--unit", default="전체", show_default=True, help="표로 보여 줄 단위")
-def cmd_similar(profile, out_dir, top, how, years, unit):
+@click.option("--scope", default="", help="검토범위. 신청기관이 지자체면 그 지자체명(예: 경남) — 중앙부처 전부처 + 동일 지자체만 비교. 중앙부처 사업이면 ‘중앙부처’. 기본: 프로필의 검토범위.동일지자체, 없으면 제한 없음")
+def cmd_similar(profile, out_dir, top, how, years, unit, scope):
     from .similarity_io import load_similarity, report_to_prompt_text
     from .similarity_query import run
 
     prof = json.loads(Path(profile).read_text(encoding="utf-8"))
     ys = [int(y) for y in years.split(",") if y.strip()] or None
     click.echo(f"임베딩({how}) → Supabase match_biz 검색 중… 단위: {list(prof.get('units', {}))}", err=True)
-    p = run(prof, out_dir, k=top, how=how, years=ys)
+    p = run(prof, out_dir, k=top, how=how, years=ys, scope=scope or None)
     click.echo(f"저장: {p}", err=True)
+    data = json.loads(Path(p).read_text(encoding="utf-8"))
+    if data.get("scope"):
+        n_out = (data.get("scope_excluded") or {}).get(unit)
+        msg = f"검토범위 ‘{data['scope']}’ 적용"
+        if n_out is not None:
+            msg += f": 후보 중 범위 밖 {n_out}개 제외"
+        click.echo(msg, err=True)
     click.echo(report_to_prompt_text(load_similarity(p, unit=unit, top=top)))
 
 

@@ -45,6 +45,8 @@ def load_similarity(path: str | Path, unit: str = "전체", top: int = 10, mark_
         n = data.get("n_existing")
         model = data.get("model", "")
         w = data.get("weights", {})
+        scope = data.get("scope")
+        n_excluded = (data.get("scope_excluded") or {}).get(unit)
     else:
         import openpyxl
 
@@ -60,14 +62,22 @@ def load_similarity(path: str | Path, unit: str = "전체", top: int = 10, mark_
                 break
         n = ws.max_row - 1 if ws.max_row else None
         model, w = "", {}
+        scope, n_excluded = None, None
     cands = [_row_to_candidate(r, mark_top3) for r in rows[:top]]
     wtxt = "·".join(f"{k} {float(v):.2f}" for k, v in w.items()) if w else "사업목적 21.05·지원내용 31.58·지원대상 31.58·전달체계 15.79"
     method = f"기존사업 {n:,}개 단위" if n else "기존사업 단위"
     method += f", {model or 'BAAI/bge-m3'} 임베딩 코사인 유사도의 가중합(가중치 {wtxt}), 단위 '{unit}'"
-    return SimilarityReport(method=method, candidates=cands, notes=[
+    notes = [
         "임베딩 유사도는 서술문의 의미적 근접성을 측정한 선별 지표이며 중복 판정 결과가 아님. 상위 후보는 예산서·공고문 대조 후 비교표에 반영",
         "전달체계 축은 소관·수행기관·시행방법으로 근사하므로 동일 수행기관 사업의 유사도가 높게 산출되는 경향",
-    ])
+    ]
+    if scope:
+        where = "중앙부처 전부처만" if scope == "중앙부처" else f"중앙부처 전부처 및 동일 지자체({scope})"
+        note = f"검토범위: {where} 비교 — 지자체 사업은 동일 지자체 사업만 비교"
+        if n_excluded:
+            note += f" (후보 중 범위 밖 {n_excluded}개 제외)"
+        notes.insert(0, note)
+    return SimilarityReport(method=method, candidates=cands, notes=notes)
 
 
 def report_to_prompt_text(rep: SimilarityReport) -> str:
