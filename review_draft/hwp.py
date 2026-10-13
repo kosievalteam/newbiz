@@ -102,9 +102,22 @@ def extract_hwpx(path: str | Path, markers: bool = True) -> str:
                     lines.append("[TABLE]")
                 if markers and "<hp:tc" in para:
                     lines.append("[CELL]")
-                texts = re.findall(r"<hp:t[^>]*>([^<]*)</hp:t>", para)
-                lines.append(_unescape("".join(texts)))
+                lines.append(_unescape(_hwpx_para_text(para)))
     return "\n".join(lines)
+
+
+_HWPX_TOKEN = re.compile(r'<hp:checkBtn\b[^>]*\bvalue="(CHECKED|UNCHECKED)"[^>]*>.*?</hp:checkBtn>|<hp:t[^>]*>([^<]*)</hp:t>', re.S)
+
+
+def _hwpx_para_text(para: str) -> str:
+    """문단의 텍스트. 양식 체크박스(hp:checkBtn)는 상태에 따라 ■/□ 로 바꿔 다음 글자 앞에 붙인다."""
+    out: list[str] = []
+    for m in _HWPX_TOKEN.finditer(para):
+        if m.group(1):
+            out.append("■ " if m.group(1) == "CHECKED" else "□ ")
+        else:
+            out.append(m.group(2))
+    return "".join(out)
 
 
 def _unescape(s: str) -> str:

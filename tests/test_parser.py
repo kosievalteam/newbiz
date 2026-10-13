@@ -37,3 +37,17 @@ def test_redact():
 
 def test_empty_text():
     assert parse_request_text("아무 내용 없음").is_empty()
+
+
+def test_hwpx_checkbox_state_is_kept(tmp_path):
+    import zipfile
+
+    from review_draft.hwp import extract_hwpx
+
+    sec = ('<hp:sec><hp:p><hp:run><hp:checkBtn value="UNCHECKED" name="c1"><hp:sz/></hp:checkBtn><hp:t> 설정 </hp:t>'
+           '<hp:checkBtn value="CHECKED" name="c2"><hp:sz/></hp:checkBtn><hp:t> 미설정</hp:t></hp:run></hp:p></hp:sec>')
+    f = tmp_path / "x.hwpx"
+    with zipfile.ZipFile(f, "w") as z:
+        z.writestr("mimetype", "application/hwp+zip")
+        z.writestr("Contents/section0.xml", sec)
+    assert extract_hwpx(f, markers=False).strip() == "□  설정 ■  미설정"
