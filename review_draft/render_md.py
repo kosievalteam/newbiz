@@ -25,7 +25,9 @@ def _axis(ax: AxisOpinion) -> list[str]:
     for d in ax.dashes:
         out += _dash(d)
     for r in ax.remarks:
-        out.append(f"   ※ {r}")
+        first, *rest = str(r).split("\n")
+        out.append(f"   ※ {first}")
+        out += [f"     {l}" for l in rest]
     return out
 
 

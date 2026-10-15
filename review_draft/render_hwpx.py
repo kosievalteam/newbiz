@@ -271,7 +271,10 @@ class _Body:
         for d in ax.dashes:
             self.dash(d)
         for r in ax.remarks:
-            self.p("※ " + r, "remark", "note")
+            first, *rest = str(r).split("\n")
+            self.p("※ " + first, "remark", "note")
+            for l in rest:  # 긴 비고는 줄바꿈으로 이어 쓴다
+                self.p("   " + l, "remark", "note")
 
 
 def build_section_xml(op: ReviewOpinion, st: _Styles, secpr_xml: str, appendix_text: str | None, draft_banner: bool) -> tuple[str, str]:
