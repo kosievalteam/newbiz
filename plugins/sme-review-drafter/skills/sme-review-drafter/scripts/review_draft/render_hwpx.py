@@ -256,7 +256,10 @@ class _Body:
         label = f"({d.label}) " if d.label else ""
         self.p("- " + label + d.text, para, "body")
         for i, n in enumerate(d.notes):
-            self.p(f"{'*' * (i + 1)} {n}", star_para, "note")
+            first, *rest = str(n).split("\n")
+            self.p(f"{'*' * (i + 1)} {first}", star_para, "note")
+            for l in rest:  # 긴 각주는 줄바꿈으로 이어 쓴다
+                self.p("  " + l, star_para, "note")
 
     def axis(self, ax: AxisOpinion):
         self.p("○ " + ax.headline, "circle", "bold")

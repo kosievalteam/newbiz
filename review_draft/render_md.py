@@ -9,7 +9,9 @@ def _dash(d: Dash, indent="   ") -> list[str]:
     label = f"({d.label}) " if d.label else ""
     out = [f"{indent}- {label}{d.text}"]
     for i, n in enumerate(d.notes):
-        out.append(f"{indent}  {'*' * (i + 1)} {n}")
+        first, *rest = str(n).split("\n")
+        out.append(f"{indent}  {'*' * (i + 1)} {first}")
+        out += [f"{indent}    {l}" for l in rest]  # 긴 각주는 줄바꿈으로 이어 쓴다
     return out
 
 

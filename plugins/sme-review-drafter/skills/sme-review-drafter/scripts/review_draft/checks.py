@@ -26,7 +26,7 @@ _FORBIDDEN = {
     "산업통상자원부": "산업통상부(’25.10. 개편)", "특허청": "지식재산처(’25.10. 개편)",
 }
 _OLD_YEAR = re.compile(r"[‘']\d{2}년")  # 왼쪽 따옴표·일반 따옴표 연도 표기
-_DASH_MAX = 110
+_SENT_MAX = 78  # 한 문장(한 줄) 최대 글자 수. 본문 모든 줄에 적용
 
 
 @dataclass
@@ -84,8 +84,6 @@ def _axis_checks(name: str, title: str, ax: AxisOpinion, verdict: str, findings:
             findings.append(Finding("warn", f"{title} ({d.label})", f"본문에 각주 표시 {stars}개, 각주 {len(d.notes)}개"))
         if not stars and d.notes and name != "duplication":
             findings.append(Finding("warn", f"{title} ({d.label})", "각주는 있으나 본문에 * 표시가 없음"))
-        if len(d.text) > _DASH_MAX:
-            findings.append(Finding("warn", f"{title} ({d.label})", f"dash 가 {len(d.text)}자로 장황함 (압축 권장)"))
         if d.text.rstrip().endswith(("다.", "음.", "함.", ".")):
             findings.append(Finding("warn", f"{title} ({d.label})", "dash 끝에 마침표 사용 (개조식 무종결 원칙)"))
 
@@ -150,4 +148,26 @@ def check_opinion(op: ReviewOpinion) -> list[Finding]:
         f.append(Finding("warn", "개요", "사업명에 요청사유(‘/ 세부사업 신설’ 등)가 없음"))
 
     _text_checks(op, f)
+    _length_checks(op, f)
     return f
+
+
+def _length_checks(op: ReviewOpinion, findings: list[Finding]):
+    """본문에 출력되는 모든 줄(헤드라인·dash·각주·비고·박스·표 셀)은 한 줄 _SENT_MAX 자를 넘지 않는다."""
+    skip = {"reviewer_notes", "similarity"}
+
+    def walk(obj, path):
+        if isinstance(obj, str):
+            for line in obj.split("\n"):
+                if len(line) > _SENT_MAX:
+                    findings.append(Finding("error", path, f"한 줄 {len(line)}자 (최대 {_SENT_MAX}자): {line[:30]}…"))
+        elif isinstance(obj, list):
+            for i, v in enumerate(obj):
+                walk(v, f"{path}[{i}]")
+        elif isinstance(obj, dict):
+            for k, v in obj.items():
+                if k in skip:
+                    continue
+                walk(v, f"{path}.{k}" if path else k)
+
+    walk(op.model_dump(), "")
