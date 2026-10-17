@@ -57,7 +57,7 @@ def test_forbidden_expression_warns():
 
 
 def test_vague_similarity_expression_is_flagged():
-    op = _load()
-    op.duplication.dashes[0].text = "본 사업과 기존사업은 일부 유사성 확인"
-    msgs = [f.message for f in check_opinion(op) if f.level == "warn"]
+    d = _load()
+    d["duplication"]["dashes"][0]["text"] = "본 사업과 기존사업은 일부 유사성 확인"
+    msgs = [f.message for f in check_opinion(ReviewOpinion.model_validate(d)) if f.level == "warn"]
     assert any("일부 유사" in m and "축" in m for m in msgs)
