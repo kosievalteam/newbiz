@@ -25,6 +25,8 @@ _FORBIDDEN = {
     "우수하다고 평가": "인정됨", "필요성 제시": "필요성 인정", "시장실패": "민간투자 위축 가능성",
     "산업통상자원부": "산업통상부(’25.10. 개편)", "특허청": "지식재산처(’25.10. 개편)",
 }
+# 정도만 흐리는 유사성 표현: 겹치는 축(사업목적·지원대상·지원내용·지원방식)이나 영역을 적시해야 한다
+_VAGUE_SIMILARITY = re.compile(r"(일부|부분적으로|부분적인|다소|어느 정도|약간)\s*(유사|중첩|중복|겹치)")
 _OLD_YEAR = re.compile(r"[‘']\d{2}년")  # 왼쪽 따옴표·일반 따옴표 연도 표기
 _SENT_MAX = 78  # 한 문장(한 줄) 최대 글자 수. 본문 모든 줄에 적용
 
@@ -96,6 +98,9 @@ def _text_checks(op: ReviewOpinion, findings: list[Finding]):
                     findings.append(Finding("warn", path, f"회피 표현 ‘{bad}’ → ‘{good}’"))
             if _OLD_YEAR.search(obj):
                 findings.append(Finding("warn", path, "연도 표기는 오른쪽 작은따옴표(’27년) 사용"))
+            m = _VAGUE_SIMILARITY.search(obj)
+            if m:
+                findings.append(Finding("warn", path, f"정도만 흐리는 표현 ‘{m.group(0)}’ → 겹치는 축(사업목적·지원대상·지원내용·지원방식)이나 영역을 적시"))
         elif isinstance(obj, list):
             for i, v in enumerate(obj):
                 walk(v, f"{path}[{i}]")
