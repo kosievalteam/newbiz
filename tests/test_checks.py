@@ -33,8 +33,9 @@ def test_overall_verdict_rule():
 
 def test_headline_area_without_dash():
     d = _load()
-    d["suitability"]["headline"] = "(사업 적합성) 지원대상·지원내용·지원규모·사업수행체계 측면 적절, “원안 동의”"
-    assert any("지원대상" in e.message for e in _errors(d))
+    d["validity"]["headline"] = "(사업 타당성) 법적근거·상위정책 및 정책수요 측면 타당, “원안 동의”"
+    d["validity"]["dashes"] = [x for x in d["validity"]["dashes"] if "상위정책" not in x["label"]]
+    assert any("상위정책" in e.message for e in _errors(d))
 
 
 def test_recommend_requires_improvements():
@@ -61,3 +62,14 @@ def test_vague_similarity_expression_is_flagged():
     d["duplication"]["dashes"][0]["text"] = "본 사업과 기존사업은 일부 유사성 확인"
     msgs = [f.message for f in check_opinion(ReviewOpinion.model_validate(d)) if f.level == "warn"]
     assert any("일부 유사" in m and "축" in m for m in msgs)
+
+
+def test_suitability_requires_all_four_areas():
+    d = _load()
+    d["suitability"]["dashes"] = [x for x in d["suitability"]["dashes"] if x["label"] != "지원대상"]
+    msgs = [f.message for f in _errors(d)]
+    assert any("‘지원대상’ dash 가 없음" in m for m in msgs)
+    d = _load()
+    d["check_box"]["lines"] = ["지원내용, 지원규모, 수행기관 : (원안 동의)"]
+    msgs = [f.message for f in _errors(d)]
+    assert any("‘지원대상’ 판정이 없음" in m for m in msgs)

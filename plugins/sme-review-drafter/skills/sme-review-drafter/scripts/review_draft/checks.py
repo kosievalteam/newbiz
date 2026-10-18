@@ -137,7 +137,17 @@ def check_opinion(op: ReviewOpinion) -> list[Finding]:
     if s.유사중복성 == "권고" and not op.similar_programs:
         f.append(Finding("warn", "유사중복검토 사업", "유사·중복성 권고인데 유사중복검토 사업 표가 비어 있음"))
 
+    # 사업 적합성은 지원대상·지원내용·지원규모·수행체계를 모두 검토한다
+    suit_labels = [d.label.replace(" ", "") for d in _all_dashes(op.suitability) if d.label]
+    for area, keys in _AREAS["suitability"].items():
+        if not any(any(k in l for k in keys) for l in suit_labels):
+            f.append(Finding("error", "사업 적합성", f"‘{area}’ dash 가 없음 (지원대상·지원내용·지원규모·수행체계는 모두 검토)"))
+        if area not in op.suitability.headline.replace(" ", ""):
+            f.append(Finding("error", "사업 적합성", f"헤드라인에 ‘{area}’ 영역이 없음 (네 영역의 판단을 모두 적시)"))
     cb = " ".join(op.check_box.lines).replace(" ", "")
+    for area, keys in _AREAS["suitability"].items():
+        if not any(k in cb for k in keys):
+            f.append(Finding("error", "사업내용 점검", f"점검 박스에 ‘{area}’ 판정이 없음"))
     if s.사업적합성 == "권고" and "권고" not in cb:
         f.append(Finding("error", "사업내용 점검", "사업 적합성 권고인데 점검 박스에 ‘권고안 제시’가 없음"))
     if s.사업적합성 == "동의" and "권고" in cb:
