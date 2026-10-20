@@ -178,7 +178,8 @@ BAAI/bge-m3 임베딩으로 비교해 유사·중복 검토 후보를 뽑습니�
 (20·30·30·15) 를 합 100 으로 정규화해 적용합니다.
 
 ```bash
-# torch 설치 (둘 중 하나)
+# torch 설치 (셋 중 하나)
+pip install -r similarity/requirements.txt                       # similarity/ 만 쓸 때(review-draft 패키지 설치 없이)
 pip install -e ".[similarity]"                                   # PyPI 기본 wheel (CUDA 포함, 약 3GB) — GPU 없는 PC/서버에서도 동작
 pip install torch --index-url https://download.pytorch.org/whl/cpu && pip install sentence-transformers openpyxl pandas
 #   ↑ CPU 전용 wheel(약 200MB). Claude Code 클라우드 환경에서는 download.pytorch.org 가 기본 네트워크 정책에 막혀 있으므로
@@ -195,13 +196,17 @@ python similarity/similarity_check.py --xlsx 공고정보.xlsx --biz biz_2025_20
 # 기존사업을 내역·내내역사업 단위로 비교하고 공고정보는 보강 자료로만 쓰려면 (biz_struct·gonggo 추출 JSON 필요)
 python similarity/similarity_check.py --level naeyeok --xlsx 공고정보.xlsx --biz biz_2025_2026.json \
     --struct struct2025/ --struct struct2026/ --parents-full parents_full/ --gonggo gonggo2025/ --gonggo gonggo2026/ \
-    --out output/similarity
+    --cache-dir emb_cache/ --out output/similarity   # 캐시: 두 번째 협의사업부터 기존사업 임베딩 재사용
+
+# 개조식 보고서(.md)를 Word 로 변환
+npm install docx && node similarity/md2docx.js 보고서.md 보고서.docx
 ```
 
 `--level naeyeok` 에서는 예산 구조표(biz_struct) 레벨3·4 항목을 내내역 단위로 만들고(부모 내역사업의 목적·대상·전달체계 상속),
 공고정보는 공고명↔내역사업 매핑표(gonggo)·세부사업명·사업명 대조로 해당 단위에 ①목적·②내용·③대상·④규모를 덧붙입니다.
 매핑 결과는 결과 xlsx 의 「공고매핑」 시트에서 확인할 수 있습니다.
 
+- `similarity/biz_export.sql` : biz_info 추출 질의 4종(내역사업·구조표·내내역 부모 전체 텍스트·공고 매핑). 열 별칭을 바꾸지 말 것
 - `similarity/new_project_profile.json` : 협의사업 4개 축 서술(전체·내역사업 단위). 새 협의사업은 이 파일을 바꿔 재사용
 - `similarity/results/` : 「청년 금융혁신 창업·일자리 확대 지원」 분석 결과(개조식 보고서 .md, 전체 순위 .xlsx)
 - `similarity/results/` : 「G밸리 의료기기개발 지원센터 운영」 분석 결과(개조식 보고서 .md, 내역 단위 순위 .xlsx, 공고 단위 보조 분석 .xlsx, 프로필 .json)
