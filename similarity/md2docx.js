@@ -39,9 +39,10 @@ function flushTable(rows) {
 let table = [];
 for (const raw of lines) {
   const l = raw.replace(/\s+$/, "");
-  if (/^\|/.test(l)) {
-    if (/^\|\s*-+/.test(l)) continue;
-    table.push(l.replace(/^\||\|$/g, "").split("|").map(s => s.trim()));
+  const t = l.replace(/^\s+/, "");            // 개조식 위계상 들여쓴 표도 인식
+  if (/^\|/.test(t)) {
+    if (/^\|\s*-+/.test(t)) continue;
+    table.push(t.replace(/^\||\|$/g, "").split("|").map(s => s.trim()));
     continue;
   } else if (table.length) { flushTable(table); table = []; }
   if (!l.trim()) continue;

@@ -200,7 +200,15 @@ python similarity/similarity_check.py --level naeyeok --xlsx 공고정보.xlsx -
 
 # 개조식 보고서(.md)를 Word 로 변환
 npm install docx && node similarity/md2docx.js 보고서.md 보고서.docx
+
+# 보고용 1장 그림(PNG) — 수치는 xlsx 에서 읽고 서술은 명세 json 에서 받는다
+python similarity/report_figure.py --xlsx 유사도_산출결과.xlsx \
+    --spec figures/figure_spec_사업명.json --out figures/보고그림_사업명.png
 ```
+
+유사도 분석 1건의 산출물은 다섯 가지입니다: 검토보고서 `.md`·`.docx`, 보고용 그림 `.png`(+명세 `.json`),
+순위표 `.xlsx`, 신규사업 프로필 `.json`. 그림 글꼴은 `similarity/assets/fonts/`(Noto Sans KR, OFL)에 포함되어
+컨테이너에 한글 글꼴이 없어도 같은 결과가 나옵니다.
 
 `--level naeyeok` 에서는 예산 구조표(biz_struct) 레벨3·4 항목을 내내역 단위로 만들고(부모 내역사업의 목적·대상·전달체계 상속),
 공고정보는 공고명↔내역사업 매핑표(gonggo)·세부사업명·사업명 대조로 해당 단위에 ①목적·②내용·③대상·④규모를 덧붙입니다.
