@@ -138,6 +138,7 @@ npm install docx && node similarity/md2docx.js 보고서.md 보고서.docx
 - `similarity/new_project_profile.json` : 협의사업 4개 축 서술(전체·내역사업 단위). 새 협의사업은 이 파일을 바꿔 재사용
 - `similarity/results/` : 「청년 금융혁신 창업·일자리 확대 지원」 분석 결과(개조식 보고서 .md, 전체 순위 .xlsx)
 - `similarity/results/` : 「G밸리 의료기기개발 지원센터 운영」 분석 결과(개조식 보고서 .md, 내역 단위 순위 .xlsx, 공고 단위 보조 분석 .xlsx, 프로필 .json)
+- `similarity/results/` : 「서울 Vision 2030 펀드 조성」 분석 결과(개조식 보고서 .md, 내역 단위 순위 .xlsx, 공고 단위 보조 분석 .xlsx, 프로필 .json)
 
 ## 스킬: 유사·중복 후보 분석 (`.claude/skills/sme-similarity-review/`)
 
