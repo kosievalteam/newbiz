@@ -79,7 +79,7 @@ def load_existing(xlsx: Path) -> pd.DataFrame:
 
 
 EXTRA_COLS = ["부처", "기관", "공고이름", "목적", "내용", "대상", "규모", "설명", "대분류", "중분류",
-              "대상유형", "업종", "정책목적", "신규/기존", "공고링크"]
+              "대상유형", "업종", "정책목적", "신규/기존", "공고링크", "시행방법"]
 
 
 def load_extra(path: Path) -> pd.DataFrame:
@@ -205,7 +205,7 @@ def main() -> None:
     ap.add_argument("--map-threshold", type=float, default=0.6, help="공고명 매칭 Dice 계수 하한")
     ap.add_argument("--cache-dir", default=None, help="기존사업 임베딩 캐시 폴더(축별 텍스트 해시가 같으면 재사용)")
     ap.add_argument("--extra", action="append", default=[],
-                    help="추가 기존사업 표(csv/xlsx). 필수 열: 공고이름, 목적, 내용, 대상 / 선택 열: 부처, 기관, 규모, 설명, 대분류, 중분류, 대상유형, 업종, 정책목적, 신규/기존, 공고링크")
+                    help="추가 기존사업 표(csv/xlsx). 필수 열: 공고이름, 목적, 내용, 대상 / 선택 열: 부처, 기관, 규모, 설명, 대분류, 중분류, 대상유형, 업종, 정책목적, 신규/기존, 공고링크, 시행방법")
     a = ap.parse_args()
 
     out = Path(a.out)
