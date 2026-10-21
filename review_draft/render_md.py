@@ -68,7 +68,10 @@ def render_md(op: ReviewOpinion) -> str:
         for d in imp.dashes:
             L += _dash(d)
     L += ["", "### 〈 사업간 비교표 〉", ""]
-    L += _table(["구 분"] + op.comparison.columns, op.comparison.rows)
+    for t in op.comparison_tables():
+        if t.title:
+            L += [f"**{t.title}**", ""]
+        L += _table(["구 분"] + t.columns, t.rows) + [""]
     if op.similarity.candidates:
         L += ["", "### 〈 참고 〉 유사도 분석 결과 (상위 후보)", ""]
         if op.similarity.method:

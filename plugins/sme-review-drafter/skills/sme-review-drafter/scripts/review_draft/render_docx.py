@@ -249,7 +249,10 @@ def render_docx(op: ReviewOpinion, out_path: str | Path, *, appendix_text: str |
 
     # 비교표
     _para(doc, "〈 사업간 비교표 〉", bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=14, space_after=4)
-    _grid_table(doc, ["구 분"] + op.comparison.columns, op.comparison.rows, first_col_cm=2.0)
+    for t in op.comparison_tables():
+        if t.title:
+            _para(doc, t.title, bold=True, space_before=8, space_after=2)
+        _grid_table(doc, ["구 분"] + t.columns, t.rows, first_col_cm=2.0)
 
     if op.similarity.candidates:
         _para(doc, "〈 참고 〉 유사도 분석 결과 (상위 후보)", bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=14, space_after=4)

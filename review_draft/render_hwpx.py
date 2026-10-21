@@ -330,7 +330,12 @@ def build_section_xml(op: ReviewOpinion, st: _Styles, secpr_xml: str, appendix_t
 
     b.blank()
     b.p("〈 사업간 비교표 〉", "center", "bold")
-    b.grid_table(["구 분"] + op.comparison.columns, op.comparison.rows, first_w=5500, char="small", header_char="smallb")
+    for i, t in enumerate(op.comparison_tables()):
+        if i:
+            b.blank()
+        if t.title:
+            b.p(t.title, "left", "bold")
+        b.grid_table(["구 분"] + t.columns, t.rows, first_w=5500, char="small", header_char="smallb")
 
     if op.similarity.candidates:
         b.blank()

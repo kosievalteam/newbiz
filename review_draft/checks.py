@@ -153,10 +153,14 @@ def check_opinion(op: ReviewOpinion) -> list[Finding]:
     if s.사업적합성 == "동의" and "권고" in cb:
         f.append(Finding("error", "사업내용 점검", "사업 적합성 동의인데 점검 박스에 ‘권고안 제시’가 있음"))
 
-    ncol = len(op.comparison.columns) + 1
-    for i, row in enumerate(op.comparison.rows):
-        if len(row) != ncol:
-            f.append(Finding("error", "사업간 비교표", f"{i + 1}번째 행의 칸 수({len(row)})가 열 수({ncol})와 다름"))
+    tables = op.comparison_tables()
+    for ti, t in enumerate(tables):
+        ncol = len(t.columns) + 1
+        where = "사업간 비교표" + (f"[{ti + 1}]" if len(tables) > 1 else "")
+        for i, row in enumerate(t.rows):
+            if len(row) != ncol:
+                f.append(Finding("error", where, f"{i + 1}번째 행의 칸 수({len(row)})가 열 수({ncol})와 다름"))
+    _comparison_coverage(op, f)
     if not op.overview.검토자:
         f.append(Finding("warn", "개요", "검토자 미기재"))
     if "/" not in op.overview.사업명:
@@ -165,6 +169,56 @@ def check_opinion(op: ReviewOpinion) -> list[Finding]:
     _text_checks(op, f)
     _length_checks(op, f)
     return f
+
+
+def _cited_programs(op: ReviewOpinion) -> list[str]:
+    """본문에 언급된 기존사업명: ※ 유사중복검토 사업 표 + 유사·중복성 각주의 '(사업명, 부처)' 표기."""
+    names: list[str] = []
+    for sp in op.similar_programs:
+        names += _leaf_names(sp.사업명)
+    for d in _all_dashes(op.duplication):
+        for n in d.notes:
+            for line in str(n).split("\n"):
+                line = line.strip()
+                if not line.startswith("("):
+                    continue
+                depth, end = 0, -1
+                for i, ch in enumerate(line):
+                    depth += (ch == "(") - (ch == ")")
+                    if depth == 0:
+                        end = i
+                        break
+                if end < 0:
+                    continue
+                inner = line[1:end]
+                if ", " not in inner:
+                    continue
+                names += _leaf_names(inner.rsplit(", ", 1)[0])
+    out: list[str] = []
+    for n in names:
+        if n and n not in out:
+            out.append(n)
+    return out
+
+
+def _leaf_names(path: str) -> list[str]:
+    """'세부 > 내역 > 내내역(비고)' 또는 'A·B' 에서 비교표 열과 대조할 이름들."""
+    leaf = path.split(">")[-1]
+    leaf = re.sub(r"\([^()]*\)", "", leaf)  # 괄호 비고 제거
+    leaf = re.sub(r"\s*(등|및)\s*$", "", leaf.strip())
+    parts = [re.sub(r"\s+", "", x) for x in leaf.split("·") if x.strip()]
+    # 사업명이 아닌 수치·연도 표기(예: '’26년 72백만원')는 제외
+    return [x for x in parts if len(x) >= 4 and not re.search(r"백만원|[’']\d\d년|^\d|%", x)]
+
+
+def _comparison_coverage(op: ReviewOpinion, findings: list[Finding]):
+    """본문(유사중복검토 사업 표, 유사·중복성 각주)에 언급한 기존사업은 모두 비교표의 열에 있어야 한다."""
+    cols = " ".join(c for t in op.comparison_tables() for c in t.columns).replace(" ", "")
+    cols_norm = cols.replace("사업", "")
+    for name in _cited_programs(op):
+        key = name.replace("사업", "")
+        if key and key not in cols_norm:
+            findings.append(Finding("error", "사업간 비교표", f"본문에 언급한 기존사업 ‘{name}’이(가) 비교표 열에 없음"))
 
 
 def _length_checks(op: ReviewOpinion, findings: list[Finding]):

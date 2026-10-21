@@ -18,6 +18,7 @@
 | `duplication` | <class 'AxisOpinion'> | ○ (유사·중복성) |
 | `improvements` | list[Improvement] | 개선의견. 전 항목 동의이면 headline '해당 없음' 1건 |
 | `comparison` | <class 'ComparisonTable'> |  |
+| `comparisons` | list[ComparisonTable] | 비교표를 여러 개로 나눌 때 사용. 비어 있지 않으면 comparison 대신 이 목록을 출력. 본문에 언급한 기존사업은 모두 어느 표에든 열로 있어야 함 |
 | `similarity` | <class 'SimilarityReport'> | 유사도 분석 결과(선택). 비교표의 기존사업은 상위 3개 후보를 토대로 선정 |
 | `reviewer_notes` | list[str] | 검토자가 확인해야 할 불확실 사항·가정. 문서 본문에는 출력하지 않고 별도 메모로 제공 |
 
@@ -117,5 +118,6 @@
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
+| `title` | <class 'str'> | 표가 여러 개일 때의 소제목. 예: '(내역①·②) 인재 매칭'. 하나뿐이면 빈 문자열 |
 | `columns` | list[str] | 첫 열 제목(구분)을 제외한 열 제목. 예: ['(신규사업) 소상공인 인력 운영 지원', '(기존) 기업인력애로센터 활용 취업 지원'] |
 | `rows` | list[list[str]] | 각 행은 [구분, 값1, 값2, …]. 구분 순서: 사업부서, 사업구조, 사업기간, 지원예산, 사업목적, 수행기관, 지원내용, 지원규모, 지원대상. 셀 내 줄바꿈은 '\n' |

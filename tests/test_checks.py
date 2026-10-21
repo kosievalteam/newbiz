@@ -73,3 +73,24 @@ def test_suitability_requires_all_four_areas():
     d["check_box"]["lines"] = ["지원내용, 지원규모, 수행기관 : (원안 동의)"]
     msgs = [f.message for f in _errors(d)]
     assert any("‘지원대상’ 판정이 없음" in m for m in msgs)
+
+
+def test_cited_program_must_appear_in_comparison():
+    d = _load()
+    d["similar_programs"].append({"부처": "중기부", "사업명": "산학협력인력양성 > 중소기업특성화고인력양성", "검토의견": "x"})
+    msgs = [f.message for f in _errors(d)]
+    assert any("중소기업특성화고인력양성" in m and "비교표" in m for m in msgs)
+    d = _load()
+    assert not any("비교표 열에 없음" in f.message for f in _errors(d))
+
+
+def test_multiple_comparison_tables_render(tmp_path):
+    from review_draft.render_md import render_md
+
+    d = _load()
+    d["comparisons"] = [
+        {"title": "표1", "columns": d["comparison"]["columns"], "rows": d["comparison"]["rows"]},
+        {"title": "표2", "columns": ["(신규사업) A", "(기존) B"], "rows": [["사업부서", "a", "b"]]},
+    ]
+    md = render_md(ReviewOpinion.model_validate(d))
+    assert "**표1**" in md and "**표2**" in md and "(기존) B" in md
