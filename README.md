@@ -193,6 +193,9 @@ python similarity/similarity_check.py --xlsx "2026년 중앙부처 지원사업 
 python similarity/similarity_check.py --xlsx 공고정보.xlsx --biz biz_2025_2026.json --out output/similarity
 # 그 밖의 추가 표(공고이름·목적·내용·대상 열 필수)는 --extra 파일.csv 로 합칩니다
 
+# 협의사업이 지자체 사업이면 타 지자체 사업을 비교 풀에서 제외합니다(중앙부처+해당 시도 자체사업만 비교)
+python similarity/similarity_check.py --xlsx 공고정보.xlsx --biz biz_2025_2026.json --region 충북 --out output/similarity
+
 # 기존사업을 내역·내내역사업 단위로 비교하고 공고정보는 보강 자료로만 쓰려면 (biz_struct·gonggo 추출 JSON 필요)
 python similarity/similarity_check.py --level naeyeok --xlsx 공고정보.xlsx --biz biz_2025_2026.json \
     --struct struct2025/ --struct struct2026/ --parents-full parents_full/ --gonggo gonggo2025/ --gonggo gonggo2026/ \
