@@ -66,6 +66,8 @@ def collect_rows(xlsx: Path, spec: dict) -> list[dict]:
     notes = spec.get("행주석", {})
     rows = []
     unit_sheets = [s for s in x.sheet_names if s.startswith("내역")]
+    if spec.get("행기준") == "전체":          # 내역이 적어 분야별 차트가 성길 때는 전체 상위 N 으로
+        unit_sheets = []
     if unit_sheets:
         for sh in unit_sheets:
             d = pd.read_excel(x, sh)
