@@ -161,6 +161,9 @@ def check_opinion(op: ReviewOpinion) -> list[Finding]:
             if len(row) != ncol:
                 f.append(Finding("error", where, f"{i + 1}번째 행의 칸 수({len(row)})가 열 수({ncol})와 다름"))
     _comparison_coverage(op, f)
+    for d in _all_dashes(op.duplication):
+        if "기존사업" in d.text and not any(str(n).lstrip().startswith("(") for n in d.notes):
+            f.append(Finding("error", f"유사·중복성 ({d.label})", "기존사업을 언급한 dash 에 ‘(기존사업명, 부처) 지원대상·내용’ 각주가 없음"))
     if not op.overview.검토자:
         f.append(Finding("warn", "개요", "검토자 미기재"))
     if "/" not in op.overview.사업명:
@@ -208,7 +211,7 @@ def _leaf_names(path: str) -> list[str]:
     leaf = re.sub(r"\s*(등|및)\s*$", "", leaf.strip())
     parts = [re.sub(r"\s+", "", x) for x in leaf.split("·") if x.strip()]
     # 사업명이 아닌 수치·연도 표기(예: '’26년 72백만원')는 제외
-    return [x for x in parts if len(x) >= 4 and not re.search(r"백만원|[’']\d\d년|^\d|%", x)]
+    return [x for x in parts if len(x) >= 4 and not re.search(r"백만원|[’']\d\d년|^\d|%|\d,\d{3}|^[(:]", x)]
 
 
 def _comparison_coverage(op: ReviewOpinion, findings: list[Finding]):

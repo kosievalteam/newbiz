@@ -94,3 +94,10 @@ def test_multiple_comparison_tables_render(tmp_path):
     ]
     md = render_md(ReviewOpinion.model_validate(d))
     assert "**표1**" in md and "**표2**" in md and "(기존) B" in md
+
+
+def test_duplication_dash_needs_program_footnote():
+    d = _load()
+    d["duplication"]["dashes"][0]["text"] = "본 사업과 기존사업은 목적이 같아 사업목적 유사성 확인"
+    d["duplication"]["dashes"][0]["notes"] = []
+    assert any("각주가 없음" in f.message for f in _errors(d))
