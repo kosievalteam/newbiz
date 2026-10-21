@@ -111,10 +111,11 @@ def build_html(spec: dict, rows: list[dict], stats: dict, font_dir: Path) -> str
           <div class="rname"><b>{esc(r['name'])}</b><span>{esc(r['desc'])}</span></div>
         </div>""")
 
+    labels = {**{k: v[1] for k, v in CAT.items()}, **spec.get("분류라벨", {})}
     used = []
     for k in ("중첩", "유사", "없음"):
         if any(r["cat"] == k for r in rows):
-            used.append(f'<i class="lg"><em style="background:{CAT[k][0]}"></em>{esc(CAT[k][1])}</i>')
+            used.append(f'<i class="lg"><em style="background:{CAT[k][0]}"></em>{esc(labels[k])}</i>')
 
     cards = "".join(f"""
       <div class="card">
