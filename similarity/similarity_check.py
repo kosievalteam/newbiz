@@ -6,8 +6,9 @@
   - 신규사업: new_project_profile.json (사업목적·지원대상·지원내용·전달체계 4개 축 서술, 전체/내역사업 단위)
 방법
   - 축별 텍스트를 BAAI/bge-m3 로 임베딩 → 코사인 유사도
-  - 가중치: 「유사·중복사업 대상 선정 분석 지표(안)」 20/30/30/15 를 합 100 으로 정규화
-    (사업목적 21.05, 지원내용 31.58, 지원대상 31.58, 전달체계 15.79)
+  - 가중치: 검토팀 조정 가중치 사업목적 10, 지원내용 40, 지원대상 30, 전달체계 20 (합 100, 2026.10. 조정)
+    · 「유사·중복사업 대상 선정 분석 지표(안)」 기본 배점(20/30/30/15)은 REF_W 로 남겨 둠
+    · --weights 10,40,30,20 처럼 사업목적·지원내용·지원대상·전달체계 순으로 바꿀 수 있음(합이 100 이 아니면 비례 조정)
   - 종합 유사도(0~100) = Σ 가중치 × 축별 코사인 유사도
   - 참고2 5단계 등급(상이/낮음/보통/높음/동일)은 코퍼스 내 축별 z-점수로 매핑한 참고치
 출력
@@ -30,8 +31,20 @@ import openpyxl
 import pandas as pd
 
 AXES = ["사업목적", "지원내용", "지원대상", "전달체계"]
-RAW_W = {"사업목적": 20, "지원내용": 30, "지원대상": 30, "전달체계": 15}      # 참고2 원 가중치(합 95)
+REF_W = {"사업목적": 20, "지원내용": 30, "지원대상": 30, "전달체계": 15}      # 지표(안) 기본항목 배점(합 95, 참고)
+RAW_W = {"사업목적": 10, "지원내용": 40, "지원대상": 30, "전달체계": 20}      # 검토팀 조정 가중치(합 100, 2026.10.)
 W = {k: v / sum(RAW_W.values()) * 100 for k, v in RAW_W.items()}           # 합 100 정규화
+
+
+def set_weights(spec: str) -> None:
+    """'10,40,30,20' (사업목적,지원내용,지원대상,전달체계 순) 으로 가중치를 바꾼다. 합이 100 이 아니면 비례 조정."""
+    global RAW_W, W
+    vals = [float(x) for x in spec.split(",")]
+    if len(vals) != len(AXES) or any(v < 0 for v in vals) or sum(vals) <= 0:
+        raise SystemExit(f"--weights 는 {','.join(AXES)} 순의 0 이상 숫자 4개여야 합니다: {spec}")
+    RAW_W = dict(zip(AXES, vals))
+    W = {k: v / sum(RAW_W.values()) * 100 for k, v in RAW_W.items()}
+
 # 참고2 5단계 배점(상이→동일) 을 축 가중치 대비 비율로 환산
 GRADE_RATIO = {
     "사업목적": [0, 5 / 20, 10 / 20, 15 / 20, 1.0],
@@ -194,6 +207,7 @@ def main() -> None:
     ap.add_argument("--out", default="output/similarity")
     ap.add_argument("--model", default="BAAI/bge-m3")
     ap.add_argument("--top", type=int, default=10)
+    ap.add_argument("--weights", help="축 가중치 사업목적,지원내용,지원대상,전달체계 순(예: 10,40,30,20). 기본값은 RAW_W")
     ap.add_argument("--biz", default=None,
                     help="biz_info 내역사업 추출 JSON 파일 또는 폴더(Supabase public.biz, 열 별칭은 load_biz 참고)")
     ap.add_argument("--biz-years", default="2025,2026")
@@ -207,6 +221,9 @@ def main() -> None:
     ap.add_argument("--extra", action="append", default=[],
                     help="추가 기존사업 표(csv/xlsx). 필수 열: 공고이름, 목적, 내용, 대상 / 선택 열: 부처, 기관, 규모, 설명, 대분류, 중분류, 대상유형, 업종, 정책목적, 신규/기존, 공고링크")
     a = ap.parse_args()
+    if a.weights:
+        set_weights(a.weights)
+    print("가중치:", ", ".join(f"{k} {W[k]:.2f}" for k in AXES))
 
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -288,7 +305,8 @@ def main() -> None:
             print(f"  {r['순위']:>2} {r['종합유사도(0~100)']:6.2f} | {r['부처']}({r['기관']}) {r['공고이름']}  "
                   f"목적{r['사업목적_유사도']:.2f} 내용{r['지원내용_유사도']:.2f} 대상{r['지원대상_유사도']:.2f} 전달{r['전달체계_유사도']:.2f}")
 
-    wdf = pd.DataFrame({"분석항목": AXES, "참고2 원가중치": [RAW_W[a_] for a_ in AXES],
+    wdf = pd.DataFrame({"분석항목": AXES, "지표(안) 배점": [REF_W[a_] for a_ in AXES],
+                        "설정 가중치": [RAW_W[a_] for a_ in AXES],
                         "정규화 가중치(합100)": [round(W[a_], 2) for a_ in AXES],
                         "5단계 배점(상이/낮음/보통/높음/동일)": [
                             "/".join(str(round(r * W[a_], 1)) for r in GRADE_RATIO[a_]) for a_ in AXES]})
