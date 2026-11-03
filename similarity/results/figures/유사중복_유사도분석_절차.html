@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>유사·중복사업 유사도 분석 절차</title>
+<style>
+FONTFACES
+body{margin:0;background:#FFFFFF}
+.root{position:relative;width:1600px;height:870px;background:#FFFFFF;font-family:'NKRL','NKR',sans-serif;color:#1B2430;overflow:hidden}
+.abs{position:absolute}
+.card{position:absolute;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;padding:20px 22px;background:#FFFFFF;border:1px solid #C9D3DF;border-radius:12px;font-size:16px;line-height:25px;color:#2B3440}
+.step{font-size:14px;font-weight:700;color:#4A5361;line-height:20px}
+.ttl{font-size:20px;font-weight:700;color:#1F3A5F;line-height:30px;margin-bottom:6px}
+.chip{display:inline-block;margin:0 6px 8px 0;padding:3px 10px;border-radius:6px;background:#E8EEF5;color:#1F3A5F;font-size:15px;font-weight:700;line-height:22px}
+.wrow{display:flex;align-items:center;gap:10px;height:30px;font-size:15px}
+.wlab{width:72px;flex:none;color:#2B3440}
+.wbar{height:14px;border-radius:3px;background:#1F3A5F}
+.wval{font-weight:700;color:#1B2430}
+.muted{color:#4A5361;font-size:14px;line-height:22px}
+</style>
+</head>
+<body>
+<div class="root">
+<div class="abs" style="left:64px;top:40px;font-size:32px;line-height:42px;font-weight:900;color:#1B2430">유사·중복사업 유사도 분석 절차</div>
+<div class="abs" style="left:64px;top:88px;width:1472px;font-size:18px;line-height:26px;color:#4A5361">협의사업 1건을 기존사업 3,631개 단위와 4개 축으로 비교해 검토 후보 10개를 선별하고, 중복 여부는 검토자가 확정</div>
+
+<div class="abs" style="left:48px;top:146px;width:1504px;height:500px;background:#F2F5F9;border-radius:16px"></div>
+<div class="abs" style="left:64px;top:156px;font-size:14px;line-height:20px;font-weight:700;color:#4A5361">AI 자동 처리 구간: 모든 협의사업에 같은 기준·같은 비교 자료 적용</div>
+
+<!-- 화살표 -->
+<svg class="abs" style="left:0;top:0;overflow:visible" width="1600" height="900" viewBox="0 0 1600 900" aria-hidden="true">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#7A8899"/></marker></defs>
+<g fill="none" stroke="#7A8899" stroke-width="2.2">
+<path d="M394 304H466" marker-end="url(#ah)"/>
+<path d="M394 526H466" marker-end="url(#ah)"/>
+<path d="M770 407H842" marker-end="url(#ah)"/>
+<path d="M1146 407H1218" marker-end="url(#ah)"/>
+<path d="M1379 620V696" marker-end="url(#ah)"/>
+</g>
+</svg>
+
+<!-- ① 신규사업 -->
+<div class="card" style="left:64px;top:194px;width:330px;height:220px">
+<div class="step">1단계 · 신규사업</div>
+<div class="ttl">협의사업 프로필 작성</div><div>
+사전협의 요청서(기본자료)와<br>사업설명자료(보조자료)로<br><b>4개 축 서술문</b> 작성<br>
+<span class="muted">세부사업 전체와 내역사업별로 단위 구성</span></div>
+</div>
+<!-- ② 기존사업 -->
+<div class="card" style="left:64px;top:432px;width:330px;height:188px">
+<div class="step">2단계 · 기존사업</div>
+<div class="ttl">비교 단위 구성</div><div>
+’25~’26년 내역·내내역사업<br><b>3,631개 단위</b> + 공고 733건 보강</div>
+</div>
+
+<!-- ③ 축별 유사도 -->
+<div class="card" style="left:470px;top:194px;width:300px;height:426px;background:#E8EEF5;border-color:#9FB2C8">
+<div class="step">3단계</div>
+<div class="ttl">축별 유사도 산출</div><div>
+<div style="margin:6px 0 10px"><span class="chip" style="background:#FFFFFF">사업목적</span><span class="chip" style="background:#FFFFFF">지원대상</span><span class="chip" style="background:#FFFFFF">지원내용</span><span class="chip" style="background:#FFFFFF">전달체계</span></div>
+다국어 문장 임베딩<br>(BAAI/bge-m3)으로<br><b>같은 축끼리</b> 의미 유사도<br>(코사인) 계산<br>
+<span class="muted">외부 API 없이 내부 PC에서 실행</span></div>
+</div>
+
+<!-- ④ 종합 유사도 -->
+<div class="card" style="left:846px;top:194px;width:300px;height:426px">
+<div class="step">4단계</div>
+<div class="ttl">종합 유사도 산출</div><div>
+<div style="margin:4px 0 10px">
+<div class="wrow"><span class="wlab">사업목적</span><span class="wbar" style="width:40px"></span><span class="wval">10</span></div>
+<div class="wrow"><span class="wlab">지원내용</span><span class="wbar" style="width:160px"></span><span class="wval">40</span></div>
+<div class="wrow"><span class="wlab">지원대상</span><span class="wbar" style="width:120px"></span><span class="wval">30</span></div>
+<div class="wrow"><span class="wlab">전달체계</span><span class="wbar" style="width:80px"></span><span class="wval">20</span></div></div>
+</div>
+<div>축별 유사도를 평가팀 가중치로<br>합산해 <b>0~100점</b> 산출<br>
+<span class="muted">「분석 지표(안)」 4개 기본항목 사용</span></div>
+</div>
+
+<!-- ⑤ 후보 선정 -->
+<div class="card" style="left:1222px;top:194px;width:314px;height:426px">
+<div class="step">5단계</div>
+<div class="ttl">후보 선정·보고</div><div>
+종합 유사도 <b style="color:#B4501A">상위 10개</b>를<br>검토 후보로 선정<br><br>
+상위 1% 기준선과 상위권 간격으로<br><b>직접 중복 검토</b>와<br><b>연계 검토</b> 대상 구분<br>
+<span class="muted">산출물: 전체 순위표, 개조식 검토보고서</span></div>
+</div>
+
+<!-- ⑥ 검토자 -->
+<div class="abs" style="left:64px;top:700px;width:760px;height:100px;box-sizing:border-box;padding:16px 22px;border:1px dashed #9FB2C8;border-radius:12px;font-size:16px;line-height:25px;color:#2B3440">
+<b style="color:#1F3A5F">유사도는 검토 대상을 좁히는 선별 지표</b>이며, 중복 판정이 아님<br>
+<span class="muted">최종 판단은 검토자가 예산서·공고문을 대조하여 확정</span>
+</div>
+<div class="card" style="left:846px;top:700px;width:690px;height:100px;background:#1F3A5F;border-color:#1F3A5F;color:#FFFFFF;padding:16px 22px">
+<div><span style="font-size:14px;font-weight:700;color:#D5DEEA">6단계 · 검토자 판단</span><br>
+<b style="font-size:19px">검토자 정성검토</b><span style="color:#E6ECF3"> : 예산서·공고문 대조 → 중복 여부 확정 → 검토의견 반영</span></div>
+</div>
+
+<div class="abs" style="left:64px;top:826px;width:1472px;font-size:14px;line-height:20px;color:#4A5361">※ 자료: 「중소기업 지원사업 정보조회」 2025·2026년 내역사업, 2026년 중앙부처 지원사업 공고정보 | 로그인 전용 자료는 외부로 반출하지 않음</div>
+</div>
+</body>
+</html>
