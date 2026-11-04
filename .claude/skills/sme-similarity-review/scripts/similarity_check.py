@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -77,8 +78,12 @@ def load_existing(xlsx: Path) -> pd.DataFrame:
     return pd.DataFrame(recs)
 
 
+LOCAL_GOVS = {"서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종",
+              "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"}
+
+
 EXTRA_COLS = ["부처", "기관", "공고이름", "목적", "내용", "대상", "규모", "설명", "대분류", "중분류",
-              "대상유형", "업종", "정책목적", "신규/기존", "공고링크"]
+              "대상유형", "업종", "정책목적", "신규/기존", "공고링크", "시행방법"]
 
 
 def load_extra(path: Path) -> pd.DataFrame:
@@ -188,7 +193,7 @@ def grade(z: float, axis: str) -> tuple[str, float]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--xlsx", required=True)
+    ap.add_argument("--xlsx", default=None, help="「중앙부처 지원사업 공고정보」 xlsx (생략하면 --biz / --extra 자료만으로 비교)")
     ap.add_argument("--profile", default=str(Path(__file__).with_name("new_project_profile.json")))
     ap.add_argument("--out", default="output/similarity")
     ap.add_argument("--model", default="BAAI/bge-m3")
@@ -202,15 +207,23 @@ def main() -> None:
     ap.add_argument("--parents-full", default=None, help="내내역 보유 내역사업의 전체 텍스트 JSON 폴더")
     ap.add_argument("--gonggo", action="append", default=[], help="gonggo 추출 JSON 폴더(공고명↔내역사업 매핑)")
     ap.add_argument("--map-threshold", type=float, default=0.6, help="공고명 매칭 Dice 계수 하한")
+    ap.add_argument("--cache-dir", default=None, help="기존사업 임베딩 캐시 폴더(축별 텍스트 해시가 같으면 재사용)")
+    ap.add_argument("--region", default=None,
+                    help="협의사업이 지자체 사업일 때 그 시도명(예: 충북). 타 지자체 사업을 비교 풀에서 제외한다")
     ap.add_argument("--extra", action="append", default=[],
-                    help="추가 기존사업 표(csv/xlsx). 필수 열: 공고이름, 목적, 내용, 대상 / 선택 열: 부처, 기관, 규모, 설명, 대분류, 중분류, 대상유형, 업종, 정책목적, 신규/기존, 공고링크")
+                    help="추가 기존사업 표(csv/xlsx). 필수 열: 공고이름, 목적, 내용, 대상 / 선택 열: 부처, 기관, 규모, 설명, 대분류, 중분류, 대상유형, 업종, 정책목적, 신규/기존, 공고링크, 시행방법")
     a = ap.parse_args()
 
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    df = load_existing(Path(a.xlsx))
-    df["신규/기존"] = "공고 " + df["신규/기존"].fillna("").astype(str)
-    df["출처"] = "공고정보"
+    if a.xlsx:
+        df = load_existing(Path(a.xlsx))
+        df["신규/기존"] = "공고 " + df["신규/기존"].fillna("").astype(str)
+        df["출처"] = "공고정보"
+    else:
+        if not (a.biz or a.extra):
+            raise SystemExit("--xlsx 를 생략하려면 --biz 또는 --extra 가 필요합니다")
+        df = pd.DataFrame(columns=EXTRA_COLS + ["행", "개요라인", "출처"])
     if a.level == "naeyeok":
         if not a.biz:
             raise SystemExit("--level naeyeok 에는 --biz 가 필요합니다")
@@ -240,7 +253,33 @@ def main() -> None:
     enc = lambda xs: model.encode(xs, normalize_embeddings=True, batch_size=16, show_progress_bar=False)
 
     texts = axis_texts(df)
-    emb = {ax: enc(texts[ax]) for ax in AXES}
+    emb = {}
+    cache_dir = Path(a.cache_dir) if a.cache_dir else None
+    for ax in AXES:
+        key = hashlib.md5((a.model + "\n" + "\x1e".join(texts[ax])).encode("utf-8")).hexdigest()
+        cf = cache_dir / f"emb_{ax}_{key}.npy" if cache_dir else None
+        if cf and cf.exists():
+            emb[ax] = np.load(cf)
+            print(f"[{ax}] 임베딩 캐시 사용 {cf.name}")
+        else:
+            emb[ax] = enc(texts[ax])
+            if cf:
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                np.save(cf, emb[ax])
+
+    if a.region:
+        if a.region not in LOCAL_GOVS:
+            raise SystemExit(f"--region 은 시도명이어야 합니다: {sorted(LOCAL_GOVS)}")
+        others = LOCAL_GOVS - {a.region}
+        keep = ~df["부처"].astype(str).str.strip().isin(others)
+        n0, n1 = len(df), int(keep.sum())
+        if n1 == 0:
+            raise SystemExit("--region 적용 후 남는 기존사업이 없습니다")
+        mask = keep.to_numpy()
+        df = df[keep].reset_index(drop=True)
+        texts = {ax: [t for t, k in zip(texts[ax], mask) if k] for ax in AXES}
+        emb = {ax: emb[ax][mask] for ax in AXES}
+        print(f"[{a.region}] 타 지자체 사업 제외: {n0} → {n1}단위 (제외 {n0 - n1})")
 
     sheets: dict[str, pd.DataFrame] = {}
     summary = {}
