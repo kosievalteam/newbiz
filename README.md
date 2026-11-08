@@ -187,7 +187,7 @@ pip install torch --index-url https://download.pytorch.org/whl/cpu && pip instal
 #     download.pytorch.org 를 추가하거나, 위의 PyPI 설치를 사용한다. 모델(BAAI/bge-m3, 약 2.2GB)은 huggingface.co 에서 받는다.
 export HF_HUB_DISABLE_XET=1   # Hugging Face Xet 다운로드가 막힌 환경일 때
 python similarity/similarity_check.py --xlsx "2026년 중앙부처 지원사업 공고정보.xlsx" \
-    --profile similarity/new_project_profile.json --out output/similarity --top 10
+    --profile similarity/new_project_profile.json --out output/similarity --top 20
 # kosievalteam.github.io/biz_info 의 2025·2026년 내역사업(Supabase public.biz) 을 합치려면
 # similarity/biz_export.sql 로 내보낸 JSON 을 --biz 로 지정합니다 (자료는 로그인 전용이므로 저장소에 올리지 않음)
 python similarity/similarity_check.py --xlsx 공고정보.xlsx --biz biz_2025_2026.json --out output/similarity
@@ -225,5 +225,5 @@ python similarity/report_figure.py --xlsx 유사도_산출결과.xlsx \
 ## 스킬: 유사·중복 후보 분석 (`.claude/skills/sme-similarity-review/`)
 
 위 `similarity/` 파이프라인을 Claude 스킬로 묶은 것입니다. 요청서 텍스트 추출 → 4개 축 프로필 작성 → 기존사업을
-내역·내내역사업 단위로 구성(공고정보는 보강) → bge-m3 임베딩·지표(안) 가중합 → 후보 10개와 개조식 보고서 작성까지의
+내역·내내역사업 단위로 구성(공고정보는 보강) → bge-m3 임베딩·지표(안) 가중합 → 후보 20개와 개조식 보고서 작성까지의
 절차와 함정, 자료 추출 방법을 담고 있습니다. 스크립트는 `similarity/` 와 같은 코드이며, 바꿀 때는 두 곳을 함께 고칩니다.

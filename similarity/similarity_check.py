@@ -197,7 +197,7 @@ def main() -> None:
     ap.add_argument("--profile", default=str(Path(__file__).with_name("new_project_profile.json")))
     ap.add_argument("--out", default="output/similarity")
     ap.add_argument("--model", default="BAAI/bge-m3")
-    ap.add_argument("--top", type=int, default=10)
+    ap.add_argument("--top", type=int, default=20, help="보고서에 올릴 상위 후보 수")
     ap.add_argument("--biz", default=None,
                     help="biz_info 내역사업 추출 JSON 파일 또는 폴더(Supabase public.biz, 열 별칭은 load_biz 참고)")
     ap.add_argument("--biz-years", default="2025,2026")
