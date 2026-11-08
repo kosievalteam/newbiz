@@ -195,6 +195,22 @@ def axis_texts(df: pd.DataFrame) -> dict[str, list[str]]:
     }
 
 
+POOL_DROP = ("순위", "종합유사도(0~100)", "참고2지표점수(0~100)")
+
+
+def load_pool_xlsx(path: Path) -> tuple[pd.DataFrame, dict[str, list[str]]]:
+    """이전 산출결과 xlsx의 '전체' 시트에서 비교 단위와 축별 텍스트를 복원한다(행 ID 순 정렬)."""
+    d = pd.read_excel(path, sheet_name="전체", dtype=str).fillna("")
+    d = d.sort_values("행").reset_index(drop=True)
+    texts = {ax: d[f"{ax}_텍스트"].tolist() for ax in AXES}
+    drop = [c for c in d.columns if c in POOL_DROP or c.startswith(tuple(f"{ax}_" for ax in AXES))]
+    d = d.drop(columns=drop)
+    for c in ("부처", "기관", "공고이름", "대분류", "중분류", "대상유형", "업종", "신규/기존", "공고링크"):
+        if c not in d.columns:
+            d[c] = ""
+    return d, texts
+
+
 def grade(z: float, axis: str) -> tuple[str, float]:
     lvl = sum(z >= c for c in Z_CUTS)
     return GRADE_NAME[lvl], GRADE_RATIO[axis][lvl] * W[axis]
@@ -202,7 +218,9 @@ def grade(z: float, axis: str) -> tuple[str, float]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--xlsx", required=True)
+    ap.add_argument("--xlsx", default=None, help="중앙부처 공고정보 xlsx(--pool-xlsx 를 쓰면 생략)")
+    ap.add_argument("--pool-xlsx", default=None,
+                    help="이전 산출결과 xlsx의 '전체' 시트로 비교 풀을 재구성(축별 _텍스트 열을 그대로 사용, biz·공고 원자료 불필요)")
     ap.add_argument("--profile", default=str(Path(__file__).with_name("new_project_profile.json")))
     ap.add_argument("--out", default="output/similarity")
     ap.add_argument("--model", default="BAAI/bge-m3")
@@ -227,10 +245,19 @@ def main() -> None:
 
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    df = load_existing(Path(a.xlsx))
-    df["신규/기존"] = "공고 " + df["신규/기존"].fillna("").astype(str)
-    df["출처"] = "공고정보"
-    if a.level == "naeyeok":
+    pool_texts = None
+    if a.pool_xlsx:
+        df, pool_texts = load_pool_xlsx(Path(a.pool_xlsx))
+        print(f"비교 풀 재구성: {a.pool_xlsx} '전체' 시트 {len(df)}건 ({df['단위'].value_counts().to_dict() if '단위' in df else ''})")
+    elif not a.xlsx:
+        raise SystemExit("--xlsx 또는 --pool-xlsx 가 필요합니다")
+    else:
+        df = load_existing(Path(a.xlsx))
+        df["신규/기존"] = "공고 " + df["신규/기존"].fillna("").astype(str)
+        df["출처"] = "공고정보"
+    if a.pool_xlsx:
+        pass  # 풀에 내역·내내역 단위와 공고 연계가 이미 반영됨
+    elif a.level == "naeyeok":
         if not a.biz:
             raise SystemExit("--level naeyeok 에는 --biz 가 필요합니다")
         from biz_units import build_units
@@ -258,7 +285,7 @@ def main() -> None:
     model = SentenceTransformer(a.model, device="cpu")
     enc = lambda xs: model.encode(xs, normalize_embeddings=True, batch_size=16, show_progress_bar=False)
 
-    texts = axis_texts(df)
+    texts = pool_texts or axis_texts(df)
     emb = {}
     cache_dir = Path(a.cache_dir) if a.cache_dir else None
     for ax in AXES:
