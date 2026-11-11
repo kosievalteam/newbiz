@@ -14,6 +14,7 @@ import base64
 import json
 import subprocess
 import tempfile
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 import pandas as pd
@@ -25,6 +26,11 @@ CAT = {
     "없음": ("#8a8982", "겹치는 기존사업 없음"),
 }
 FONT_DIR = Path(__file__).with_name("assets") / "fonts"
+
+
+def f1(x: float) -> str:
+    """소수 첫째 자리 반올림(사사오입). 보고서 본문과 같은 자리올림을 쓴다."""
+    return str(Decimal(repr(float(x))).quantize(Decimal("1.0"), rounding=ROUND_HALF_UP))
 
 
 def font_face_css(font_dir: Path) -> str:
@@ -109,7 +115,7 @@ def build_html(spec: dict, rows: list[dict], stats: dict, font_dir: Path) -> str
             <div class="line" style="width:{pct:.2f}%;background:{color}"></div>
             <div class="dot" style="left:{pct:.2f}%;background:{color}"></div>
           </div>
-          <div class="rval" style="color:{color}">{r['value']:.1f}</div>
+          <div class="rval" style="color:{color}">{f1(r['value'])}</div>
           <div class="rname"><b>{esc(r['name'])}</b><span>{esc(r['desc'])}</span></div>
         </div>""")
 
@@ -191,7 +197,7 @@ h2{{font-size:17px;font-weight:700;margin-bottom:13px;letter-spacing:-.02em}}
    <div class="legend">{''.join(used)}</div>
    {''.join(bars)}
    <div class="axis"><div class="ax">{''.join(f'<span>{t:.0f}</span>' for t in ticks)}</div></div>
-   <div class="foot">{esc(spec['차트주석'])}<br>기존사업 {stats['n']:,}개 단위 전체 평균 {stats['mean']:.1f} · 전체 1위는 {esc(stats['top'])} {stats['topv']:.1f}</div>
+   <div class="foot">{esc(spec['차트주석'])}<br>기존사업 {stats['n']:,}개 단위 전체 평균 {f1(stats['mean'])} · 전체 1위는 {esc(stats['top'])} {f1(stats['topv'])}</div>
   </div>
  </div>
  <div>
