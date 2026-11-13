@@ -8,7 +8,10 @@ sys.path.insert(0, "/home/user/newbiz/similarity")
 from similarity_check import AXES, RAW_W, W   # 기존 산식의 축과 가중치 그대로
 
 prof = json.load(open(sys.argv[1], encoding="utf-8"))
-A, B = prof["사업A_2026-053"], prof["사업B_2026-103"]
+keys = [k for k in prof if isinstance(prof[k], dict) and "units" in prof[k]]
+assert len(keys) == 2, f"비교 대상 2건이어야 합니다: {keys}"
+A, B = prof[keys[0]], prof[keys[1]]
+print(f"A = {keys[0]} / B = {keys[1]}")
 
 from sentence_transformers import SentenceTransformer
 model = SentenceTransformer("BAAI/bge-m3", device="cpu")
