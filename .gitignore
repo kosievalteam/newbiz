@@ -5,6 +5,8 @@ output/
 *.hwpx
 *.docx
 !tests/fixtures/*.docx
+# 생성한 검토보고서(Word)는 산출물이므로 예외 — 담당자 성명·연락처를 넣지 않는다
+!similarity/results/*.docx
 
 __pycache__/
 *.egg-info/
