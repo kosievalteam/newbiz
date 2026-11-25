@@ -1,0 +1,8 @@
+# 유사·중복 후보 분석(similarity/) 실행 패키지
+# 검증 환경: Python 3.11, torch 2.14, sentence-transformers 6.1, pandas 3.0, numpy 2.4, openpyxl 3.1
+torch>=2.2
+sentence-transformers>=3.0
+pandas>=2.1
+numpy>=1.26
+openpyxl>=3.1
+olefile>=0.46   # .hwp(5.x) 텍스트 추출용. .hwpx 만 쓰면 없어도 됨
